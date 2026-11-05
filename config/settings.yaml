@@ -1,0 +1,64 @@
+# GoldBot configuration file
+# See: config/settings.yaml
+
+# App settings
+app_name: goldbot
+environment: development
+timezone_storage: UTC
+mode: paper
+
+# Instrument settings
+instrument_symbol: XAUUSD
+instrument_venue: csv
+asset_type: spot
+quote_currency: USD
+metadata_source: manual_unverified
+metadata_verified: false
+
+# Market data settings
+market_data_provider: csv
+entry_timeframe: 15m
+trend_timeframe: 1h
+history_lookback_days: 730
+stale_data_seconds: 120
+require_bid_ask: true
+
+# Strategy settings
+strategy_name: trend_pullback
+ema_fast: 20
+ema_trend: 50
+ema_long: 200
+rsi_period: 14
+atr_period: 14
+adx_period: 14
+minimum_adx: 20
+candle_close_only: true
+
+# Risk settings
+risk_per_trade_pct: 0.25
+daily_loss_limit_pct: 1.0
+weekly_drawdown_limit_pct: 3.0
+max_open_positions: 1
+max_entries_per_day: 3
+max_consecutive_losses: 3
+max_spread: null
+max_slippage: null
+allow_martingale: false
+allow_grid: false
+allow_averaging_down: false
+
+# Execution settings
+adapter: paper
+allow_live_orders: false
+require_stop_loss: true
+reject_duplicate_signal: true
+order_timeout_seconds: 10
+
+# Storage settings
+# No database by default (paper sessions persist to logs/orders_<symbol>.json).
+# To enable database mirroring set GOLD_DATABASE_URL (e.g. postgresql+psycopg://...).
+database_url:
+store_raw_market_data: true
+
+# Monitoring settings
+telegram_enabled: false

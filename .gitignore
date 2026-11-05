@@ -1,0 +1,23 @@
+.ds_store
+/.venv
+/.cache
+/dist
+/build
+*.egg-info/
+/logs
+/reports
+/.env
+**.db3
+**.sqlite3
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+node_modules/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+# Ruff/mypy/pytest caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
