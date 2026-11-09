@@ -43,19 +43,19 @@ def calculate_position_size(
     """
     # --- Validate metadata ---
     if not instrument.verified:
-        raise MetadataError(
-            "Instrument metadata must be verified before position sizing."
-        )
+        raise MetadataError("Instrument metadata must be verified before position sizing.")
 
     required_fields = [
-        "contract_size", "tick_size", "tick_value", "volume_step",
-        "min_volume", "max_volume",
+        "contract_size",
+        "tick_size",
+        "tick_value",
+        "volume_step",
+        "min_volume",
+        "max_volume",
     ]
     missing = [f for f in required_fields if getattr(instrument, f) is None]
     if missing:
-        raise MetadataError(
-            f"Missing required instrument metadata fields: {missing}"
-        )
+        raise MetadataError(f"Missing required instrument metadata fields: {missing}")
 
     # --- Determine if long or short ---
     side_str = side.lower() if isinstance(side, str) else str(side)
@@ -102,8 +102,7 @@ def calculate_position_size(
     # Enforce min/max volume constraints
     if rounded_lots < min_volume:
         raise RiskError(
-            f"Rounded lot size {rounded_lots} is below minimum volume "
-            f"{min_volume}. Trade rejected."
+            f"Rounded lot size {rounded_lots} is below minimum volume {min_volume}. Trade rejected."
         )
 
     if max_volume is not None and rounded_lots > max_volume:

@@ -60,11 +60,26 @@ def test_all_orm_tables_registered():
     from goldbot.database.models import Base
 
     expected = {
-        "market_bars", "market_quotes", "instrument_metadata",
-        "strategy_signals", "trade_proposals", "approval_decisions",
-        "orders", "order_events", "positions", "completed_trades",
-        "account_snapshots", "performance_metrics", "bot_configuration",
+        "market_bars",
+        "market_quotes",
+        "instrument_metadata",
+        "strategy_signals",
+        "trade_proposals",
+        "approval_decisions",
+        "orders",
+        "order_events",
+        "positions",
+        "completed_trades",
+        "account_snapshots",
+        "performance_metrics",
+        "bot_configuration",
         "system_events",
+        # v2: analysis, audit, connections, mode changes, backtests
+        "analysis_reports",
+        "audit_events",
+        "account_connections",
+        "trading_mode_changes",
+        "backtest_results",
     }
     assert expected == set(Base.metadata.tables)
 
@@ -132,63 +147,113 @@ def test_mixed_model_crud(migrated_sqlite):
     factory = make_session_factory(engine)
     now = datetime.now(timezone.utc)
     with session_scope(factory) as session:
-        session.add_all([
-            MarketBar(
-                symbol="XAUUSD", timeframe="15m", open_price=1950.0,
-                high_price=1955.0, low_price=1948.0, close_price=1952.0,
-                volume=120.0, bid=1949.9, ask=1950.1, source="csv",
-                is_complete=True, created_at=now, updated_at=now,
-            ),
-            StrategySignal(
-                symbol="XAUUSD", direction="long", timeframe="15m",
-                reference_price=1952.0, stop_distance=12.0,
-                take_profit_multiple=2.0, reason_codes=["adx_above_minimum"],
-                created_at=now, updated_at=now,
-                strategy_version="1.0.0",
-            ),
-            TradeProposal(
-                symbol="XAUUSD", direction="long", entry_price=1952.0,
-                stop_loss=1940.0, take_profit=1976.0, position_size=0.2,
-                risk_pct=0.25, reason_text="adx okay", confidence="high",
-                strategy_name="trend_pullback", timeframe="15m",
-                proposal_expiry=now + timedelta(hours=1),
-                created_at=now, updated_at=now,
-            ),
-            ApprovalDecision(
-                proposal_id="11111111-1111-1111-1111-111111111111",
-                approved_by="operator", decision="approved",
-                reason_text="looks good", risk_check_passed=True,
-                market_price_at_decision=1952.0,
-            ),
-            Position(
-                symbol="XAUUSD", side="long", volume=0.2,
-                entry_price=1952.5, current_price=1955.0,
-                stop_loss=1940.5, take_profit=1976.5,
-                unrealised_pnl=50.0, realised_pnl=0.0, opened_at=now,
-            ),
-            CompletedTrade(
-                symbol="XAUUSD", direction="long", entry_price=1952.5,
-                exit_price=1976.5, volume=0.2, entry_time=now,
-                exit_time=now + timedelta(minutes=30), gross_pnl=480.0,
-                net_pnl=480.0, exit_reason="take_profit",
-                strategy="trend_pullback",
-            ),
-            PerformanceMetrics(
-                total_trades=3, winning_trades=2, losing_trades=1,
-                gross_profit=480.0, gross_loss=100.0, net_profit=380.0,
-                win_rate=66.6, timestamp=now, created_at=now, updated_at=now,
-            ),
-            BotConfiguration(
-                key="risk_per_trade_pct", value="0.25",
-                description="risk per trade (percent)", created_at=now,
-                updated_at=now,
-            ),
-            SystemEvent(
-                event_type="kill_switch", source="risk",
-                event_detail={"reason": "manual"}, relevance="critical",
-                created_at=now, updated_at=now,
-            ),
-        ])
+        session.add_all(
+            [
+                MarketBar(
+                    symbol="XAUUSD",
+                    timeframe="15m",
+                    open_price=1950.0,
+                    high_price=1955.0,
+                    low_price=1948.0,
+                    close_price=1952.0,
+                    volume=120.0,
+                    bid=1949.9,
+                    ask=1950.1,
+                    source="csv",
+                    is_complete=True,
+                    created_at=now,
+                    updated_at=now,
+                ),
+                StrategySignal(
+                    symbol="XAUUSD",
+                    direction="long",
+                    timeframe="15m",
+                    reference_price=1952.0,
+                    stop_distance=12.0,
+                    take_profit_multiple=2.0,
+                    reason_codes=["adx_above_minimum"],
+                    created_at=now,
+                    updated_at=now,
+                    strategy_version="1.0.0",
+                ),
+                TradeProposal(
+                    symbol="XAUUSD",
+                    direction="long",
+                    entry_price=1952.0,
+                    stop_loss=1940.0,
+                    take_profit=1976.0,
+                    position_size=0.2,
+                    risk_pct=0.25,
+                    reason_text="adx okay",
+                    confidence="high",
+                    strategy_name="trend_pullback",
+                    timeframe="15m",
+                    proposal_expiry=now + timedelta(hours=1),
+                    created_at=now,
+                    updated_at=now,
+                ),
+                ApprovalDecision(
+                    proposal_id="11111111-1111-1111-1111-111111111111",
+                    approved_by="operator",
+                    decision="approved",
+                    reason_text="looks good",
+                    risk_check_passed=True,
+                    market_price_at_decision=1952.0,
+                ),
+                Position(
+                    symbol="XAUUSD",
+                    side="long",
+                    volume=0.2,
+                    entry_price=1952.5,
+                    current_price=1955.0,
+                    stop_loss=1940.5,
+                    take_profit=1976.5,
+                    unrealised_pnl=50.0,
+                    realised_pnl=0.0,
+                    opened_at=now,
+                ),
+                CompletedTrade(
+                    symbol="XAUUSD",
+                    direction="long",
+                    entry_price=1952.5,
+                    exit_price=1976.5,
+                    volume=0.2,
+                    entry_time=now,
+                    exit_time=now + timedelta(minutes=30),
+                    gross_pnl=480.0,
+                    net_pnl=480.0,
+                    exit_reason="take_profit",
+                    strategy="trend_pullback",
+                ),
+                PerformanceMetrics(
+                    total_trades=3,
+                    winning_trades=2,
+                    losing_trades=1,
+                    gross_profit=480.0,
+                    gross_loss=100.0,
+                    net_profit=380.0,
+                    win_rate=66.6,
+                    timestamp=now,
+                    created_at=now,
+                    updated_at=now,
+                ),
+                BotConfiguration(
+                    key="risk_per_trade_pct",
+                    value="0.25",
+                    description="risk per trade (percent)",
+                    created_at=now,
+                    updated_at=now,
+                ),
+                SystemEvent(
+                    event_type="kill_switch",
+                    source="risk",
+                    event_detail={"reason": "manual"},
+                    relevance="critical",
+                    created_at=now,
+                    updated_at=now,
+                ),
+            ]
+        )
 
     with session_scope(factory) as session:
         assert session.scalar(select(func.count()).select_from(MarketBar)) == 1
@@ -218,11 +283,17 @@ def test_session_scope_rollback_on_error(migrated_sqlite):
     factory = make_session_factory(engine)
     with pytest.raises(Exception):
         with session_scope(factory) as session:
-            session.add(MarketBar(
-                symbol="XAUUSD", timeframe="15m", open_price=1950.0,
-                high_price=1955.0, low_price=1948.0, close_price=1952.0,
-                volume=120.0,
-            ))
+            session.add(
+                MarketBar(
+                    symbol="XAUUSD",
+                    timeframe="15m",
+                    open_price=1950.0,
+                    high_price=1955.0,
+                    low_price=1948.0,
+                    close_price=1952.0,
+                    volume=120.0,
+                )
+            )
             session.flush()
             raise RuntimeError("synthetic failure")
     with session_scope(factory) as session:
@@ -231,11 +302,14 @@ def test_session_scope_rollback_on_error(migrated_sqlite):
 
 
 def test_safe_database_url_masks_password():
-    assert safe_database_url(
-        "postgresql+psycopg://goldbot:sekret@localhost:5432/goldbot"
-    ) == "postgresql+psycopg://goldbot***@localhost:5432/goldbot"
-    assert safe_database_url("sqlite+pysqlite:///goldbot.sqlite3") == \
-        "sqlite+pysqlite:///goldbot.sqlite3"
+    assert (
+        safe_database_url("postgresql+psycopg://goldbot:sekret@localhost:5432/goldbot")
+        == "postgresql+psycopg://goldbot***@localhost:5432/goldbot"
+    )
+    assert (
+        safe_database_url("sqlite+pysqlite:///goldbot.sqlite3")
+        == "sqlite+pysqlite:///goldbot.sqlite3"
+    )
     assert safe_database_url(None) == "unset"
 
 
@@ -257,12 +331,16 @@ def test_database_sink_mirrors_engine_events(tmp_path):
     alembic.command.upgrade(cfg, "head")
 
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
         database_url=url,
     )
     eng = TradingEngine(
-        settings, auto_approve=True,
+        settings,
+        auto_approve=True,
         persistence_path=tmp_path / "sink_orders.json",
     )
     sink = attach_sink(eng, settings)

@@ -9,8 +9,7 @@ from goldbot.core.models import OrderSide, OrderStatus, OrderType
 
 
 def test_market_buy_fills_with_spread_and_slippage(broker):
-    order = broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET,
-                              0.10, price=None)
+    order = broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.10, price=None)
     assert order.status == OrderStatus.FILLED
     # buy fills above mid: spread/2 + slippage/2
     assert order.fill_price == pytest.approx(1950.0 + 0.05 + 0.1)
@@ -21,8 +20,7 @@ def test_market_buy_fills_with_spread_and_slippage(broker):
 
 
 def test_market_sell_fills_below_mid(broker):
-    order = broker.send_order("XAUUSD", OrderSide.SELL, OrderType.MARKET,
-                              0.10, price=None)
+    order = broker.send_order("XAUUSD", OrderSide.SELL, OrderType.MARKET, 0.10, price=None)
     assert order.status == OrderStatus.FILLED
     assert order.fill_price == pytest.approx(1950.0 - 0.05 - 0.1)
 
@@ -39,23 +37,22 @@ def test_limit_order_requires_price(broker):
 
 def test_limit_buy_fills_when_market_below_limit(broker):
     broker.set_price(900.0)
-    order = broker.send_order("XAUUSD", OrderSide.BUY, OrderType.LIMIT,
-                              0.05, price=950.0)
+    order = broker.send_order("XAUUSD", OrderSide.BUY, OrderType.LIMIT, 0.05, price=950.0)
     assert order.status == OrderStatus.FILLED
     assert order.fill_price == pytest.approx(950.0)
 
 
 def test_limit_buy_stays_rejected_when_above_limit(broker):
     broker.set_price(1000.0)
-    order = broker.send_order("XAUUSD", OrderSide.BUY, OrderType.LIMIT,
-                              0.05, price=950.0)
+    order = broker.send_order("XAUUSD", OrderSide.BUY, OrderType.LIMIT, 0.05, price=950.0)
     assert order.status == OrderStatus.REJECTED
     assert broker.get_open_position("XAUUSD") is None
 
 
 def test_take_profit_closes_position_in_profit(broker):
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET,
-                      0.10, stop_loss=1940.0, take_profit=1970.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.10, stop_loss=1940.0, take_profit=1970.0
+    )
     closed = broker.update_market_price(1971.0)
     assert len(closed) == 1
     trade = closed[0]
@@ -65,8 +62,9 @@ def test_take_profit_closes_position_in_profit(broker):
 
 
 def test_stop_loss_closes_position_in_loss(broker):
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET,
-                      0.10, stop_loss=1940.0, take_profit=1970.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.10, stop_loss=1940.0, take_profit=1970.0
+    )
     closed = broker.update_market_price(1939.0)
     assert len(closed) == 1
     assert closed[0]["reason"] == "stop_loss"
@@ -75,16 +73,18 @@ def test_stop_loss_closes_position_in_loss(broker):
 
 
 def test_short_position_take_profit_downside(broker):
-    broker.send_order("XAUUSD", OrderSide.SELL, OrderType.MARKET,
-                      0.20, stop_loss=1960.0, take_profit=1930.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.SELL, OrderType.MARKET, 0.20, stop_loss=1960.0, take_profit=1930.0
+    )
     closed = broker.update_market_price(1929.0)
     assert closed[0]["reason"] == "take_profit"
     assert closed[0]["pnl"] > 0
 
 
 def test_short_position_stop_loss_upside(broker):
-    broker.send_order("XAUUSD", OrderSide.SELL, OrderType.MARKET,
-                      0.20, stop_loss=1960.0, take_profit=1930.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.SELL, OrderType.MARKET, 0.20, stop_loss=1960.0, take_profit=1930.0
+    )
     closed = broker.update_market_price(1961.0)
     assert closed[0]["reason"] == "stop_loss"
     assert closed[0]["pnl"] < 0
@@ -93,8 +93,9 @@ def test_short_position_stop_loss_upside(broker):
 def test_intrabar_path_low_before_high(broker):
     """Within a candle, the lower price step happens first via engine; the
     broker must close at SL when price <= sl for longs."""
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET,
-                      0.10, stop_loss=1900.0, take_profit=2000.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.10, stop_loss=1900.0, take_profit=2000.0
+    )
     closed = broker.update_market_price(1899.0)
     assert closed and closed[0]["reason"] == "stop_loss"
 
@@ -112,8 +113,9 @@ def test_manual_close(broker):
 def test_equity_tracks_pnl(broker):
     start = broker.get_account_equity()
     assert start == pytest.approx(10_000.0)
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET, 1.0,
-                      stop_loss=1900.0, take_profit=2000.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 1.0, stop_loss=1900.0, take_profit=2000.0
+    )
     mid = broker.get_account_equity()
     broker.update_market_price(1960.0)
     up = broker.get_account_equity()
@@ -137,8 +139,9 @@ def test_reversal_of_position(broker):
 
 
 def test_persistence_roundtrip(tmp_path, broker):
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.25,
-                      stop_loss=1940.0, take_profit=1980.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.25, stop_loss=1940.0, take_profit=1980.0
+    )
     path: Path = broker.persistence_path
     assert path.exists()
 
@@ -146,8 +149,10 @@ def test_persistence_roundtrip(tmp_path, broker):
     from goldbot.execution.paper_broker import PaperBroker
 
     restored = PaperBroker(
-        symbol="XAUUSD", persistence_path=path,
-        initial_equity=10_000.0, contract_size=100.0,
+        symbol="XAUUSD",
+        persistence_path=path,
+        initial_equity=10_000.0,
+        contract_size=100.0,
     )
     pos = restored.get_open_position("XAUUSD")
     assert pos is not None
@@ -157,23 +162,30 @@ def test_persistence_roundtrip(tmp_path, broker):
 
 
 def test_closed_trades_persist_across_restart(tmp_path, broker):
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.10,
-                      stop_loss=1900.0, take_profit=2000.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.10, stop_loss=1900.0, take_profit=2000.0
+    )
     broker.update_market_price(1880.0)  # SL hit
     from goldbot.execution.paper_broker import PaperBroker
 
-    restored = PaperBroker(symbol="XAUUSD", persistence_path=broker.persistence_path,
-                           initial_equity=10_000.0, contract_size=100.0)
+    restored = PaperBroker(
+        symbol="XAUUSD",
+        persistence_path=broker.persistence_path,
+        initial_equity=10_000.0,
+        contract_size=100.0,
+    )
     assert len(restored.closed_trades) == 1
     assert restored.closed_trades[0]["pnl"] < 0
 
 
 def test_get_trades_newest_first(broker):
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.05,
-                      stop_loss=1900.0, take_profit=2000.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.05, stop_loss=1900.0, take_profit=2000.0
+    )
     broker.update_market_price(1890.0)  # close 1
-    broker.send_order("XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.05,
-                      stop_loss=1990.0, take_profit=2100.0)
+    broker.send_order(
+        "XAUUSD", OrderSide.BUY, OrderType.MARKET, 0.05, stop_loss=1990.0, take_profit=2100.0
+    )
     broker.update_market_price(1895.0)  # close 2
     trades = broker.get_trades()
     assert len(trades) == 2

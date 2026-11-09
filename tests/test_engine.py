@@ -39,13 +39,17 @@ def test_indicators_populate_after_warmup(engine):
 
 def test_full_replay_with_auto_approve_produces_trades(tmp_path):
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
     )
     from goldbot.engine import TradingEngine
 
     eng = TradingEngine(
-        settings, auto_approve=True,
+        settings,
+        auto_approve=True,
         persistence_path=tmp_path / "bt_orders.json",
     )
     proposals, executed = 0, 0
@@ -60,22 +64,25 @@ def test_full_replay_with_auto_approve_produces_trades(tmp_path):
     account = eng.get_account()
     perf = eng.get_performance()
     assert account["initial_equity"] == pytest.approx(10_000.0)
-    assert account["equity"] == pytest.approx(
-        eng.paper_broker.get_account_equity(), abs=1e-6
-    )
+    assert account["equity"] == pytest.approx(eng.paper_broker.get_account_equity(), abs=1e-6)
     assert perf["total_trades"] == len(eng.get_trades())
     assert perf["total_trades"] > 0
 
 
 def test_max_open_positions_enforced(tmp_path):
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0, max_open_positions=1,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
+        max_open_positions=1,
     )
     from goldbot.engine import TradingEngine
 
     eng = TradingEngine(
-        settings, auto_approve=True,
+        settings,
+        auto_approve=True,
         persistence_path=tmp_path / "pos_orders.json",
     )
     while eng._replay_index < len(eng._all_candles):
@@ -89,13 +96,18 @@ def test_max_open_positions_enforced(tmp_path):
 def test_rush_rejection_reasons_recorded(tmp_path):
     """Rejected proposals always explain themselves."""
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0, max_entries_per_day=1,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
+        max_entries_per_day=1,
     )
     from goldbot.engine import TradingEngine
 
     eng = TradingEngine(
-        settings, auto_approve=True,
+        settings,
+        auto_approve=True,
         persistence_path=tmp_path / "rej_orders.json",
     )
     while eng._replay_index < len(eng._all_candles):
@@ -109,13 +121,17 @@ def test_rush_rejection_reasons_recorded(tmp_path):
 
 def test_kill_switch_blocks_all_new_entries(tmp_path):
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
     )
     from goldbot.engine import TradingEngine
 
     eng = TradingEngine(
-        settings, auto_approve=True,
+        settings,
+        auto_approve=True,
         persistence_path=tmp_path / "ks_orders.json",
     )
     eng.set_kill_switch(True, "test harness")
@@ -129,13 +145,17 @@ def test_kill_switch_blocks_all_new_entries(tmp_path):
 
 def test_close_position_api(tmp_path):
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
     )
     from goldbot.engine import TradingEngine
 
     eng = TradingEngine(
-        settings, auto_approve=True,
+        settings,
+        auto_approve=True,
         persistence_path=tmp_path / "close_orders.json",
     )
     eng.step_bar()
@@ -153,13 +173,17 @@ def test_close_position_api(tmp_path):
 
 def test_config_update_validates(tmp_path):
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
     )
     from goldbot.engine import TradingEngine
 
     eng = TradingEngine(
-        settings, persistence_path=tmp_path / "cfg_orders.json",
+        settings,
+        persistence_path=tmp_path / "cfg_orders.json",
     )
     cfg = eng.update_config({"risk_per_trade_pct": 0.5, "auto_approve": True})
     assert cfg["risk_per_trade_pct"] == pytest.approx(0.5)
@@ -189,9 +213,7 @@ def test_jump_to_bar_sets_price(engine):
     target = 400
     engine.jump_to_bar(target)
     assert engine._replay_index == target
-    assert engine.paper_broker.current_price == pytest.approx(
-        engine._all_candles[target - 1].close
-    )
+    assert engine.paper_broker.current_price == pytest.approx(engine._all_candles[target - 1].close)
 
 
 def test_performance_metrics_shapes(engine):
@@ -199,8 +221,21 @@ def test_performance_metrics_shapes(engine):
         engine.step_bar()
     perf = engine.get_performance()
     assert set(perf) == {
-        "total_trades", "win_rate", "profit_factor", "total_pnl",
-        "average_win", "average_loss", "max_drawdown_pct", "current_equity",
+        "total_trades",
+        "win_rate",
+        "profit_factor",
+        "total_pnl",
+        "average_win",
+        "average_loss",
+        "max_drawdown_pct",
+        "current_equity",
+        "expectancy",
+        "sharpe_ratio",
+        "average_risk_reward",
+        "max_consecutive_wins",
+        "max_consecutive_losses",
+        "insufficient_sample",
+        "sample_caveat",
     }
     assert perf["win_rate"] >= 0
     assert perf["total_trades"] >= 0
@@ -236,11 +271,15 @@ def test_manual_mode_proposals_go_pending_and_operator_flow(tmp_path):
     execute only on approval, and rejecting one must close it out.
     """
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
     )
     eng = TradingEngine(
-        settings, auto_approve=False,
+        settings,
+        auto_approve=False,
         persistence_path=tmp_path / "manual_orders.json",
     )
 
@@ -270,11 +309,15 @@ def test_manual_mode_approve_executes_pending_proposal(tmp_path):
     from goldbot.engine import TradingEngine
 
     settings = GoldBotSettings(
-        mode="paper", instrument_symbol="XAUUSD", instrument_venue="paper",
-        asset_type="spot", initial_equity=10_000.0,
+        mode="paper",
+        instrument_symbol="XAUUSD",
+        instrument_venue="paper",
+        asset_type="spot",
+        initial_equity=10_000.0,
     )
     eng = TradingEngine(
-        settings, auto_approve=False,
+        settings,
+        auto_approve=False,
         persistence_path=tmp_path / "manual2_orders.json",
     )
     while eng._replay_index < len(eng._all_candles):

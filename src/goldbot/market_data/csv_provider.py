@@ -66,17 +66,18 @@ class CsvMarketDataProvider(MarketDataProviderProtocol):
         else:
             candles = self._load_all_candles(symbol, timeframe)
             # Filter to date range
-            candles = [
-                c for c in candles
-                if start <= c.timestamp_utc <= end
-            ]
+            candles = [c for c in candles if start <= c.timestamp_utc <= end]
             # Sort ascending by timestamp
             candles.sort(key=lambda c: c.timestamp_utc)
             self._cache[cache_key] = candles
 
         logger.debug(
             "Loaded %d bars for %s %s in range %s-%s",
-            len(candles), symbol, timeframe, start, end,
+            len(candles),
+            symbol,
+            timeframe,
+            start,
+            end,
         )
         return candles
 
@@ -177,7 +178,8 @@ class CsvMarketDataProvider(MarketDataProviderProtocol):
         # Check for NaN after conversion
         if opens.isna().any() or highs.isna().any() or lows.isna().any() or closes.isna().any():
             nan_locs = [
-                i for i, (o, h, low_, c) in enumerate(zip(opens, highs, lows, closes))
+                i
+                for i, (o, h, low_, c) in enumerate(zip(opens, highs, lows, closes))
                 if any(pd.isna(v) for v in (o, h, low_, c))
             ]
             msg = f"Non-numeric values found in candle data at rows: {nan_locs}"

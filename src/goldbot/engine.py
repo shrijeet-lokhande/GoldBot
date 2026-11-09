@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -45,9 +46,11 @@ logger = logging.getLogger("goldbot.engine")
 # Market context passed to the strategy
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MarketContext:
     """Minimal market context consumed by ``BaseStrategy.generate_signal``."""
+
     symbol: str
     entry_timeframe: str
     trend_timeframe: str
@@ -58,6 +61,7 @@ class MarketContext:
 # Trade proposal (what the operator sees on the dashboard)
 # ---------------------------------------------------------------------------
 
+
 def proposal_to_dict(p: "TradeProposal") -> dict:
     return p.to_dict()
 
@@ -65,20 +69,21 @@ def proposal_to_dict(p: "TradeProposal") -> dict:
 @dataclass
 class TradeProposal:
     """A proposed trade awaiting operator (or auto) approval."""
+
     proposal_id: str
     symbol: str
-    direction: str          # "long" | "short"
+    direction: str  # "long" | "short"
     entry_price: float
     stop_loss: float
     take_profit: float
-    position_size: float    # lots (filled after risk evaluation)
+    position_size: float  # lots (filled after risk evaluation)
     risk_pct: float
     reason_text: str
     confidence: str
     strategy_name: str
     timeframe: str
     created_at: str
-    status: str = "pending"          # pending | approved | rejected | expired | executed
+    status: str = "pending"  # pending | approved | rejected | expired | executed
     decision_reason: str | None = None
     order_id: str | None = None
     signal_snapshot: dict[str, Any] = field(default_factory=dict)
@@ -108,6 +113,7 @@ class TradeProposal:
 # ---------------------------------------------------------------------------
 # Trading engine
 # ---------------------------------------------------------------------------
+
 
 class TradingEngine:
     """Orchestrates the full paper-trading loop.
@@ -148,7 +154,7 @@ class TradingEngine:
             symbol=self.symbol,
             venue=settings.instrument_venue or "paper",
             asset_type=settings.asset_type or "spot",
-            contract_size=100.0,   # 1 lot = 100 oz (XAUUSD standard assumption)
+            contract_size=100.0,  # 1 lot = 100 oz (XAUUSD standard assumption)
             tick_size=0.1,
             tick_value=1.0,
             volume_step=0.01,
@@ -201,9 +207,7 @@ class TradingEngine:
         )
 
         # --- Market data ---
-        self.csv_path = Path(csv_path) if csv_path else Path(
-            "data/fixtures/sample_xauusd_15m.csv"
-        )
+        self.csv_path = Path(csv_path) if csv_path else Path("data/fixtures/sample_xauusd_15m.csv")
         self.provider = CsvMarketDataProvider(self.csv_path)
         self._all_candles: list[Candle] = []
         self._load_candles()
@@ -226,6 +230,7 @@ class TradingEngine:
 
         # Indicator caches
         self._indicators: dict[str, Any] = {}
+        self._analysis_engine: Any = None
 
     # ------------------------------------------------------------------
     # Data
@@ -233,6 +238,7 @@ class TradingEngine:
 
     def _load_candles(self) -> None:
         from datetime import datetime as dt
+
         self._all_candles = self.provider.get_historical_bars(
             symbol=self.symbol,
             timeframe=self.entry_timeframe,
@@ -290,6 +296,37 @@ class TradingEngine:
     def get_indicators(self) -> dict[str, Any]:
         return dict(self._indicators or {})
 
+    def analyze(self) -> dict:
+        """Full structured XAUUSD analysis over the revealed candles."""
+        from goldbot.analysis import AnalysisEngine
+
+        reveals = self.candles
+        if len(reveals) < 30:
+            return {
+                "symbol": self.symbol,
+                "error": "insufficient_data",
+                "detail": (
+                    f"{len(reveals)} bars revealed; at least 30 required. "
+                    "No analysis is manufactured."
+                ),
+                "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            }
+        if self._analysis_engine is None:
+            self._analysis_engine = AnalysisEngine(
+                base_timeframe=self.entry_timeframe,
+                macro_provider=_load_macro_provider(),
+            )
+        try:
+            report = self._analysis_engine.analyze(reveals, symbol=self.symbol)
+        except ValueError as exc:
+            return {
+                "symbol": self.symbol,
+                "error": "analysis_unavailable",
+                "detail": str(exc),
+                "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            }
+        return report.to_dict()
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -307,11 +344,7 @@ class TradingEngine:
     def get_account(self) -> dict:
         equity = self.paper_broker.get_account_equity()
         realised = self.paper_broker._realised_pnl_total
-        unrealised = float(
-            sum(
-                p.unrealised_pnl for p in self.paper_broker.get_positions()
-            )
-        )
+        unrealised = float(sum(p.unrealised_pnl for p in self.paper_broker.get_positions()))
         return {
             "equity": round(equity, 2),
             "balance": round(self.paper_broker.initial_equity + realised, 2),
@@ -323,19 +356,21 @@ class TradingEngine:
     def get_positions(self) -> list[dict]:
         positions = []
         for p in self.paper_broker.get_positions():
-            positions.append({
-                "symbol": p.symbol,
-                "side": p.side.value,
-                "direction": "LONG" if p.side == OrderSide.BUY else "SHORT",
-                "volume": p.volume,
-                "entry_price": round(p.entry_price, 2),
-                "current_price": round(p.current_price or p.entry_price, 2),
-                "unrealised_pnl": round(p.unrealised_pnl, 2),
-                "realised_pnl": round(p.realised_pnl, 2),
-                "stop_loss": p.stop_loss,
-                "take_profit": p.take_profit,
-                "pnl_percent": round(p.pnl_percent, 3),
-            })
+            positions.append(
+                {
+                    "symbol": p.symbol,
+                    "side": p.side.value,
+                    "direction": "LONG" if p.side == OrderSide.BUY else "SHORT",
+                    "volume": p.volume,
+                    "entry_price": round(p.entry_price, 2),
+                    "current_price": round(p.current_price or p.entry_price, 2),
+                    "unrealised_pnl": round(p.unrealised_pnl, 2),
+                    "realised_pnl": round(p.realised_pnl, 2),
+                    "stop_loss": p.stop_loss,
+                    "take_profit": p.take_profit,
+                    "pnl_percent": round(p.pnl_percent, 3),
+                }
+            )
         return positions
 
     def get_trades(self, limit: int | None = None) -> list[dict]:
@@ -368,6 +403,9 @@ class TradingEngine:
 
     def get_performance(self) -> dict:
         trades = self.paper_broker.get_trades()
+        from goldbot.backtest import evaluate_trades
+
+        metrics = evaluate_trades(trades)
         wins = [t for t in trades if t["pnl"] > 0]
         losses = [t for t in trades if t["pnl"] <= 0]
         gross_win = sum(t["pnl"] for t in wins)
@@ -375,7 +413,8 @@ class TradingEngine:
         total_pnl = gross_win - gross_loss
         win_rate = (len(wins) / len(trades) * 100.0) if trades else 0.0
         profit_factor = (
-            (gross_win / gross_loss) if gross_loss > 0
+            (gross_win / gross_loss)
+            if gross_loss > 0
             else (None if gross_win == 0 else float("inf"))
         )
         equity = self.paper_broker.get_account_equity()
@@ -393,12 +432,21 @@ class TradingEngine:
             "win_rate": round(win_rate, 2),
             "profit_factor": profit_factor if profit_factor is None else round(profit_factor, 3),
             "total_pnl": round(total_pnl, 2),
-            "average_win": round((sum(t['pnl'] for t in wins) / len(wins)) if wins else 0.0, 2),
+            "average_win": round((sum(t["pnl"] for t in wins) / len(wins)) if wins else 0.0, 2),
             "average_loss": round(
-                (sum(t['pnl'] for t in losses) / len(losses)) if losses else 0.0, 2,
+                (sum(t["pnl"] for t in losses) / len(losses)) if losses else 0.0,
+                2,
             ),
             "max_drawdown_pct": round(max_dd, 2),
             "current_equity": round(equity, 2),
+            # Research-grade additions (see goldbot.backtest.evaluate_trades)
+            "expectancy": metrics["expectancy"],
+            "sharpe_ratio": metrics["sharpe_ratio"],
+            "average_risk_reward": metrics["average_risk_reward"],
+            "max_consecutive_wins": metrics["max_consecutive_wins"],
+            "max_consecutive_losses": metrics["max_consecutive_losses"],
+            "insufficient_sample": metrics["insufficient_sample"],
+            "sample_caveat": metrics["caveat"],
         }
 
     def get_health(self) -> dict:
@@ -457,8 +505,9 @@ class TradingEngine:
             stop_price = entry_price - stop_distance
         else:
             stop_price = entry_price + stop_distance
-        take_profit = entry_price + (signal.stop_distance * signal.take_profit_multiple
-                                      * (1 if is_long else -1))
+        take_profit = entry_price + (
+            signal.stop_distance * signal.take_profit_multiple * (1 if is_long else -1)
+        )
         try:
             decision = self.risk_engine.evaluate_signal(
                 signal=signal,
@@ -583,8 +632,11 @@ class TradingEngine:
             prop.status = "rejected"
             prop.decision_reason = decision.get("reason")
             self._publish({"type": "proposal", "data": prop.to_dict()})
-            return {"status": "rejected_by_risk", "reason": decision.get("reason"),
-                    "proposal": prop.to_dict()}
+            return {
+                "status": "rejected_by_risk",
+                "reason": decision.get("reason"),
+                "proposal": prop.to_dict(),
+            }
 
         side = OrderSide.BUY if is_long else OrderSide.SELL
         order = self.paper_broker.send_order(
@@ -601,16 +653,25 @@ class TradingEngine:
             prop.status = "executed"
             prop.order_id = order.order_id
             self.risk_limits.increment_entries_today()
-            self._publish({"type": "order", "data": {
-                "order_id": order.order_id,
-                "proposal_id": prop.proposal_id,
-                "side": order.side.value,
-                "volume": order.volume,
-                "fill_price": order.fill_price,
-            }})
+            self._publish(
+                {
+                    "type": "order",
+                    "data": {
+                        "order_id": order.order_id,
+                        "proposal_id": prop.proposal_id,
+                        "side": order.side.value,
+                        "volume": order.volume,
+                        "fill_price": order.fill_price,
+                    },
+                }
+            )
             self._publish({"type": "proposal", "data": prop.to_dict()})
-            return {"status": "order_submitted", "order_id": order.order_id,
-                    "fill_price": order.fill_price, "proposal": prop.to_dict()}
+            return {
+                "status": "order_submitted",
+                "order_id": order.order_id,
+                "fill_price": order.fill_price,
+                "proposal": prop.to_dict(),
+            }
         prop.status = "rejected"
         prop.decision_reason = f"order {order.status.value}"
         return {"status": "order_rejected", "proposal": prop.to_dict()}
@@ -656,8 +717,11 @@ class TradingEngine:
             elif key in int_fields and isinstance(value, (int, float)) and int(value) >= 1:
                 setattr(s, key, int(value))
                 setattr(self.risk_limits, int_fields[key], int(value))
-            elif key == "order_timeout_seconds" and isinstance(value, (int, float)) \
-                    and int(value) >= 1:
+            elif (
+                key == "order_timeout_seconds"
+                and isinstance(value, (int, float))
+                and int(value) >= 1
+            ):
                 setattr(s, key, int(value))
             elif key in bool_keys and isinstance(value, bool):
                 self.auto_approve = value
@@ -716,16 +780,28 @@ class TradingEngine:
                 events.append({"type": "proposal", "data": proposal.to_dict()})
 
         # Publish market updates
-        self._publish({"type": "candle", "data": {
-            "time": int(candle.timestamp_utc.timestamp()),
-            "open": candle.open, "high": candle.high,
-            "low": candle.low, "close": candle.close,
-            "volume": candle.volume,
-        }})
-        self._publish({"type": "price", "data": {
-            **self.get_quote(),
-            "equity": round(self.paper_broker.get_account_equity(), 2),
-        }})
+        self._publish(
+            {
+                "type": "candle",
+                "data": {
+                    "time": int(candle.timestamp_utc.timestamp()),
+                    "open": candle.open,
+                    "high": candle.high,
+                    "low": candle.low,
+                    "close": candle.close,
+                    "volume": candle.volume,
+                },
+            }
+        )
+        self._publish(
+            {
+                "type": "price",
+                "data": {
+                    **self.get_quote(),
+                    "equity": round(self.paper_broker.get_account_equity(), 2),
+                },
+            }
+        )
 
         return {
             "candle": candle,
@@ -753,7 +829,8 @@ class TradingEngine:
         indicators = self.get_indicators()
         indicator_results = {
             k: {"value": v if not isinstance(v, dict) else None}
-            for k, v in indicators.items() if k != "series"
+            for k, v in indicators.items()
+            if k != "series"
         }
         try:
             signal = self.strategy.generate_signal(context, indicator_results)
@@ -774,8 +851,9 @@ class TradingEngine:
         bucket_start: datetime | None = None
         for c in reveals:
             ts = c.timestamp_utc
-            start = ts.replace(minute=(ts.minute // bucket_minutes) * bucket_minutes,
-                               second=0, microsecond=0)
+            start = ts.replace(
+                minute=(ts.minute // bucket_minutes) * bucket_minutes, second=0, microsecond=0
+            )
             if bucket_start is None or start != bucket_start:
                 if cur:
                     out.append(_merge_candles(cur))
@@ -796,8 +874,11 @@ class TradingEngine:
 
         async def _loop():
             self._running = True
-            logger.info("Engine loop started (interval=%.2fs, speed=%.1fx)",
-                        interval_seconds, self.replay_speed)
+            logger.info(
+                "Engine loop started (interval=%.2fs, speed=%.1fx)",
+                interval_seconds,
+                self.replay_speed,
+            )
             try:
                 while True:
                     await asyncio.sleep(interval_seconds)
@@ -843,6 +924,7 @@ class TradingEngine:
         def _unsubscribe() -> None:
             if callback in self._subscribers:
                 self._subscribers.remove(callback)
+
         return _unsubscribe
 
     def _publish(self, event: dict) -> None:
@@ -880,3 +962,22 @@ def _last(series: pd.Series) -> float | None:
     except (TypeError, ValueError):
         pass
     return float(val)
+
+
+def _load_macro_provider():
+    """Load the configured macro-data provider for the analysis engine.
+
+    Only explicitly configured, licensed providers are used. GoldBot ships
+    the ``unavailable`` provider: the analysis engine then reports
+    fundamental data as missing instead of fabricating it.
+    """
+    from goldbot.analysis.fundamentals import UnavailableMacroProvider
+
+    name = os.environ.get("GOLD_MACRO_PROVIDER", "unavailable")
+    if name != "unavailable":
+        logger.warning(
+            "GOLD_MACRO_PROVIDER=%r has no built-in implementation; "
+            "fundamental data is reported as unavailable",
+            name,
+        )
+    return UnavailableMacroProvider()

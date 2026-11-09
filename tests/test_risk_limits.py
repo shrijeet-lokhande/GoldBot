@@ -110,15 +110,17 @@ def test_kill_switch_condition_matrix(limits):
     )
     ks.deactivate()
     # Stale data blocks
-    assert ks.check_and_block(risk_limits=limits, instrument_metadata=_instrument(True),
-                              stale_data=True)
+    assert ks.check_and_block(
+        risk_limits=limits, instrument_metadata=_instrument(True), stale_data=True
+    )
     ks.deactivate()
     # Unverified metadata blocks
     assert ks.check_and_block(risk_limits=limits, instrument_metadata=_instrument(False))
     ks.deactivate()
     # Daily-limit breach blocks
-    assert ks.check_and_block(risk_limits=limits, instrument_metadata=_instrument(True),
-                              current_equity=9_000.0)
+    assert ks.check_and_block(
+        risk_limits=limits, instrument_metadata=_instrument(True), current_equity=9_000.0
+    )
 
 
 def _instrument(verified: bool):

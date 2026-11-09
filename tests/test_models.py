@@ -55,8 +55,12 @@ def test_signal_id_is_deterministic_per_inputs():
 
 def test_order_enum_coercion_and_lifecycle():
     o = Order(
-        order_id="x", symbol="XAUUSD", side="buy", order_type="market",
-        volume=1.0, status="filled",
+        order_id="x",
+        symbol="XAUUSD",
+        side="buy",
+        order_type="market",
+        volume=1.0,
+        status="filled",
     )
     assert o.side == OrderSide.BUY
     assert o.order_type == OrderType.MARKET

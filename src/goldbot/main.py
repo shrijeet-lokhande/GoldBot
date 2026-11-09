@@ -32,22 +32,27 @@ def cli() -> None:
 
 
 @cli.command()
-@click.option("--config", default="config/settings.yaml", show_default=True,
-              help="Path to settings YAML file.")
+@click.option(
+    "--config",
+    default="config/settings.yaml",
+    show_default=True,
+    help="Path to settings YAML file.",
+)
 def config_check(config: str) -> None:
     """Validate configuration without connecting to a broker."""
     try:
         settings = load_settings(Path(config))
-        click.echo(f"Configuration OK: mode={settings.mode}, "
-                   f"instrument_symbol={settings.instrument_symbol}")
+        click.echo(
+            f"Configuration OK: mode={settings.mode}, "
+            f"instrument_symbol={settings.instrument_symbol}"
+        )
         click.echo(f"  environment: {settings.environment}")
         click.echo(f"  mode: {settings.mode}")
         click.echo(f"  metadata_verified: {settings.metadata_verified}")
         click.echo(f"  max_open_positions: {settings.max_open_positions}")
         click.echo(f"  risk_per_trade_pct: {settings.risk_per_trade_pct}")
         click.echo(f"  daily_loss_limit_pct: {settings.daily_loss_limit_pct}")
-        click.echo(f"  weekly_drawdown_limit_pct: "
-                   f"{settings.weekly_drawdown_limit_pct}")
+        click.echo(f"  weekly_drawdown_limit_pct: {settings.weekly_drawdown_limit_pct}")
         sys.exit(0)
     except Exception as exc:
         click.echo(f"Configuration error: {exc}", err=True)
@@ -73,14 +78,17 @@ def health() -> None:
     if settings.mode == "paper":
         click.echo("Status: Paper trading mode active (safe default)")
     elif settings.mode == "live":
-        click.echo("Status: Live mode configured - ensure all safety gates "
-                   "are configured")
+        click.echo("Status: Live mode configured - ensure all safety gates are configured")
     sys.exit(0)
 
 
 @cli.command()
-@click.option("--file", default="data/fixtures/sample_xauusd_15m.csv",
-              show_default=True, help="Path to CSV file to import.")
+@click.option(
+    "--file",
+    default="data/fixtures/sample_xauusd_15m.csv",
+    show_default=True,
+    help="Path to CSV file to import.",
+)
 def data_import(file: str) -> None:
     """Import a historical CSV dataset (validate + report)."""
     from datetime import datetime as dt
@@ -110,8 +118,12 @@ def data_import(file: str) -> None:
 
 
 @cli.command()
-@click.option("--file", default="data/fixtures/sample_xauusd_15m.csv",
-              show_default=True, help="Path to CSV data file.")
+@click.option(
+    "--file",
+    default="data/fixtures/sample_xauusd_15m.csv",
+    show_default=True,
+    help="Path to CSV data file.",
+)
 def data_status(file: str) -> None:
     """Inspect available data."""
     from datetime import datetime as dt
@@ -144,8 +156,12 @@ def data_status(file: str) -> None:
 
 
 @cli.command()
-@click.option("--file", default="data/fixtures/sample_xauusd_15m.csv",
-              show_default=True, help="Path to CSV data file.")
+@click.option(
+    "--file",
+    default="data/fixtures/sample_xauusd_15m.csv",
+    show_default=True,
+    help="Path to CSV data file.",
+)
 def indicators(file: str) -> None:
     """Calculate indicators for a dataset."""
     import pandas as pd
@@ -163,8 +179,7 @@ def indicators(file: str) -> None:
 
         required = {"timestamp", "open", "high", "low", "close"}
         if not required.issubset(set(df.columns)):
-            click.echo(f"CSV missing required columns: "
-                       f"{required - set(df.columns)}", err=True)
+            click.echo(f"CSV missing required columns: {required - set(df.columns)}", err=True)
             sys.exit(1)
 
         close = df["close"]
@@ -192,12 +207,16 @@ def indicators(file: str) -> None:
 
 
 @cli.command()
-@click.option("--config", default="config/settings.yaml", show_default=True,
-              help="Path to settings YAML file.")
-@click.option("--bars", default=0, type=int,
-              help="Number of bars to simulate (0 = full dataset, then wrap).")
-@click.option("--interval", default=1.0, show_default=True,
-              help="Seconds between bars.")
+@click.option(
+    "--config",
+    default="config/settings.yaml",
+    show_default=True,
+    help="Path to settings YAML file.",
+)
+@click.option(
+    "--bars", default=0, type=int, help="Number of bars to simulate (0 = full dataset, then wrap)."
+)
+@click.option("--interval", default=1.0, show_default=True, help="Seconds between bars.")
 def paper(config: str, bars: int, interval: float) -> None:
     """Run a paper trading session in the terminal.
 
@@ -216,8 +235,10 @@ def paper(config: str, bars: int, interval: float) -> None:
     )
 
     click.echo(f"Starting GoldBot paper trading ({settings.mode} mode)...")
-    click.echo(f"Symbol: {engine.symbol}  Bars available: "
-               f"{len(engine._all_candles)}  All fills are simulated.")
+    click.echo(
+        f"Symbol: {engine.symbol}  Bars available: "
+        f"{len(engine._all_candles)}  All fills are simulated."
+    )
     click.echo("Press Ctrl+C to stop.")
 
     def show_bar(result: dict) -> None:
@@ -269,12 +290,24 @@ def backtest() -> None:
 
 
 @backtest.command("run")
-@click.option("--config", default="config/settings.yaml", show_default=True,
-              help="Path to settings YAML file.")
-@click.option("--data", default="data/fixtures/sample_xauusd_15m.csv",
-              show_default=True, help="Path to CSV data file.")
-@click.option("--auto-approve/--manual", default=True, show_default=True,
-              help="Auto-approve every risk-passing proposal.")
+@click.option(
+    "--config",
+    default="config/settings.yaml",
+    show_default=True,
+    help="Path to settings YAML file.",
+)
+@click.option(
+    "--data",
+    default="data/fixtures/sample_xauusd_15m.csv",
+    show_default=True,
+    help="Path to CSV data file.",
+)
+@click.option(
+    "--auto-approve/--manual",
+    default=True,
+    show_default=True,
+    help="Auto-approve every risk-passing proposal.",
+)
 def backtest_run(config: str, data: str, auto_approve: bool) -> None:
     """Replay the full historical dataset through the actual engine.
 
@@ -298,9 +331,11 @@ def backtest_run(config: str, data: str, auto_approve: bool) -> None:
         click.echo(f"Backtest setup failed: {exc}", err=True)
         sys.exit(1)
 
-    click.echo(f"Running backtest: {len(engine._all_candles)} bars, "
-               f"strategy={settings.strategy_name}, "
-               f"risk_per_trade={settings.risk_per_trade_pct}%")
+    click.echo(
+        f"Running backtest: {len(engine._all_candles)} bars, "
+        f"strategy={settings.strategy_name}, "
+        f"risk_per_trade={settings.risk_per_trade_pct}%"
+    )
 
     while engine._replay_index < len(engine._all_candles):
         engine.step_bar()
@@ -311,17 +346,17 @@ def backtest_run(config: str, data: str, auto_approve: bool) -> None:
     click.echo("\n=== Backtest Results ===")
     click.echo(f"Initial equity: {account['initial_equity']:.2f}")
     click.echo(f"Final equity:   {account['equity']:.2f}")
-    click.echo(f"Total return:   "
-               f"{(account['equity'] / account['initial_equity'] - 1) * 100:.2f}%")
+    click.echo(f"Total return:   {(account['equity'] / account['initial_equity'] - 1) * 100:.2f}%")
     click.echo(f"Total trades:   {perf['total_trades']}")
     click.echo(f"Win rate:       {perf['win_rate']}%")
     click.echo(f"Profit factor:  {perf['profit_factor']}")
     click.echo(f"Max drawdown:   {perf['max_drawdown_pct']}%")
     click.echo(f"Total P&L:      {perf['total_pnl']}")
-    click.echo(f"Proposals:      {len(engine.proposals)} "
-               f"(rejected: "
-               f"{len([p for p in engine.proposals if p.status == 'rejected'])})"
-               )
+    click.echo(
+        f"Proposals:      {len(engine.proposals)} "
+        f"(rejected: "
+        f"{len([p for p in engine.proposals if p.status == 'rejected'])})"
+    )
 
 
 def main() -> None:

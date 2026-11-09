@@ -6,6 +6,17 @@ import numpy as np
 import pandas as pd
 
 
+def sma(series: pd.Series, period: int) -> pd.Series:
+    """Calculate Simple Moving Average.
+
+    Returns NaN for the first ``period - 1`` values (a true rolling mean,
+    unlike the EMA which is defined from the first bar).
+    """
+    if period < 1:
+        raise ValueError("SMA period must be >= 1")
+    return series.rolling(window=period, min_periods=period).mean()
+
+
 def ema(series: pd.Series, period: int) -> pd.Series:
     """Calculate Exponential Moving Average.
 

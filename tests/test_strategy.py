@@ -11,8 +11,7 @@ from tests.conftest import make_candle
 class MarketData:
     """Minimal market context matching the engine's MarketContext shape."""
 
-    def __init__(self, symbol="XAUUSD", entry_timeframe="15m",
-                 trend_timeframe="1h", candles=None):
+    def __init__(self, symbol="XAUUSD", entry_timeframe="15m", trend_timeframe="1h", candles=None):
         self.symbol = symbol
         self.entry_timeframe = entry_timeframe
         self.trend_timeframe = trend_timeframe
@@ -41,11 +40,19 @@ def long_context_completing_setup():
     """Entry candles where a completed bullish candle just pulled back to EMA fast."""
     base = datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc)
     prior = make_candle(
-        0, open_=1950.0, high=1950.5, low=1949.4, close=1950.0,
+        0,
+        open_=1950.0,
+        high=1950.5,
+        low=1949.4,
+        close=1950.0,
     )
     prior.timestamp_utc = base
     recent = make_candle(
-        1, open_=1950.0, high=1953.0, low=1949.6, close=1952.5,
+        1,
+        open_=1950.0,
+        high=1953.0,
+        low=1949.6,
+        close=1952.5,
     )
     recent.timestamp_utc = base + timedelta(minutes=15)
     return [prior, recent]

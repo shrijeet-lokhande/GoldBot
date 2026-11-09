@@ -157,8 +157,7 @@ class RiskLimits:
             self._consecutive_losses += 1
             if self._consecutive_losses >= self.max_consecutive_losses:
                 logger.warning(
-                    "Max consecutive losses (%d) reached - entries blocked "
-                    "until the daily reset",
+                    "Max consecutive losses (%d) reached - entries blocked until the daily reset",
                     self.max_consecutive_losses,
                 )
         else:

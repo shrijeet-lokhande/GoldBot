@@ -325,9 +325,7 @@ class AccountSnapshot(Base, UUIDMixin, TimestampMixin):
     free_cash = Column(Float, nullable=False)
     timestamp = Column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (
-        Index("ix_account_snapshots_timestamp", "timestamp"),
-    )
+    __table_args__ = (Index("ix_account_snapshots_timestamp", "timestamp"),)
 
 
 class PerformanceMetrics(Base, UUIDMixin, TimestampMixin):
@@ -356,9 +354,7 @@ class PerformanceMetrics(Base, UUIDMixin, TimestampMixin):
     short_total_pnl = Column(Float, nullable=True, default=0.0)
     timestamp = Column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (
-        Index("ix_performance_metrics_timestamp", "timestamp"),
-    )
+    __table_args__ = (Index("ix_performance_metrics_timestamp", "timestamp"),)
 
 
 class BotConfiguration(Base, UUIDMixin, TimestampMixin):
@@ -368,9 +364,7 @@ class BotConfiguration(Base, UUIDMixin, TimestampMixin):
     value = Column(JSON, nullable=False)
     description = Column(String(256), nullable=True)
 
-    __table_args__ = (
-        Index("ix_bot_configuration_key", "key"),
-    )
+    __table_args__ = (Index("ix_bot_configuration_key", "key"),)
 
 
 class SystemEvent(Base, UUIDMixin, TimestampMixin):
@@ -380,6 +374,81 @@ class SystemEvent(Base, UUIDMixin, TimestampMixin):
     source = Column(String(64), nullable=True)
     event_detail = Column(JSON, nullable=True)
     relevance = Column(String(32), nullable=True)
+
+
+class AnalysisReportRow(Base, UUIDMixin, TimestampMixin):
+    """Persisted output of the XAUUSD analysis engine."""
+
+    __tablename__ = "analysis_reports"
+
+    symbol = Column(String(32), nullable=False, index=True)
+    market_regime = Column(String(32), nullable=False)
+    directional_bias = Column(String(16), nullable=False)
+    htf_trend = Column(String(32), nullable=True)
+    confidence_score = Column(Integer, nullable=True)
+    report = Column(JSON, nullable=False)
+    generated_at = Column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (Index("ix_analysis_reports_symbol_time", "symbol", "generated_at"),)
+
+
+class AuditEventRow(Base, UUIDMixin, TimestampMixin):
+    """Append-only audit trail for mode changes and security-relevant actions."""
+
+    __tablename__ = "audit_events"
+
+    actor = Column(String(128), nullable=True)
+    event = Column(String(64), nullable=False, index=True)
+    details = Column(JSON, nullable=True)
+
+    __table_args__ = (Index("ix_audit_events_time", "created_at"),)
+
+
+class AccountConnection(Base, UUIDMixin, TimestampMixin):
+    """Broker/account connection metadata. NEVER stores credentials or tokens."""
+
+    __tablename__ = "account_connections"
+
+    provider = Column(String(32), nullable=False, index=True)  # oanda | paper | ...
+    environment = Column(String(16), nullable=False, default="practice")  # practice|live
+    account_label = Column(String(64), nullable=True)
+    external_account_id = Column(String(64), nullable=True)  # broker-side ID
+    connected = Column(Boolean, default=False, nullable=False)
+    authorized_live = Column(Boolean, default=False, nullable=False)
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
+    # NOTE: no credential columns exist by design; tokens live in env/config.
+
+    __table_args__ = (Index("ix_account_connections_provider", "provider", "environment"),)
+
+
+class TradingModeChange(Base, UUIDMixin, TimestampMixin):
+    """Audit record for every paper<->live trading-mode switch attempt."""
+
+    __tablename__ = "trading_mode_changes"
+
+    from_mode = Column(String(16), nullable=False)
+    to_mode = Column(String(16), nullable=False)
+    result = Column(String(16), nullable=False)  # ok | denied | already
+    actor = Column(String(128), nullable=True)
+    reason = Column(Text, nullable=True)
+
+    __table_args__ = (Index("ix_trading_mode_changes_time", "created_at"),)
+
+
+class BacktestResultRow(Base, UUIDMixin, TimestampMixin):
+    """Persisted backtesting/walk-forward results."""
+
+    __tablename__ = "backtest_results"
+
+    symbol = Column(String(32), nullable=False, index=True)
+    strategy_name = Column(String(64), nullable=False)
+    timeframe = Column(String(16), nullable=False)
+    start_bar = Column(Integer, nullable=True)
+    end_bar = Column(Integer, nullable=True)
+    params = Column(JSON, nullable=True)
+    metrics = Column(JSON, nullable=False)
+
+    __table_args__ = (Index("ix_backtest_results_symbol", "symbol"),)
 
 
 __all__ = [
@@ -405,7 +474,13 @@ __all__ = [
     "PerformanceMetrics",
     "BotConfiguration",
     "SystemEvent",
+    "AnalysisReportRow",
+    "AuditEventRow",
+    "AccountConnection",
+    "TradingModeChange",
+    "BacktestResultRow",
 ]
+
 
 def create_all_tables(database_url: str | None = None):
     """Create all database tables from the ORM metadata.
@@ -425,8 +500,7 @@ def create_all_tables(database_url: str | None = None):
         database_url = load_settings().database_url
     if not database_url:
         raise ValueError(
-            "No database URL configured (set GOLD_DATABASE_URL or pass "
-            "database_url explicitly)"
+            "No database URL configured (set GOLD_DATABASE_URL or pass database_url explicitly)"
         )
     engine = create_engine(database_url)
     Base.metadata.create_all(bind=engine)

@@ -151,6 +151,61 @@ export interface CandleBar {
   volume: number
 }
 
+// ---------------------------------------------------------------------------
+// Trading mode + broker connections (v2)
+// ---------------------------------------------------------------------------
+
+export interface ModeStatus {
+  mode: "paper" | "live"
+  live_authorized: boolean
+  broker_connected: boolean
+  confirmation_phrase_required: string
+}
+
+export interface BrokerConnectionStatus {
+  mode: ModeStatus
+  broker: {
+    adapter: string | null
+    environment: string | null
+    configured: boolean
+    account_summary: Record<string, unknown> | null
+    tradingview_oauth_available: boolean
+  }
+}
+
+export interface AuditTrailEntry {
+  timestamp_utc: string
+  actor: string
+  event: string
+  details: Record<string, unknown>
+}
+
+export function fetchModeStatus(): Promise<ModeStatus> {
+  return apiGet<ModeStatus>("/api/v1/mode")
+}
+
+export function fetchConnectionStatus(): Promise<BrokerConnectionStatus> {
+  return apiGet<BrokerConnectionStatus>("/api/v1/connections")
+}
+
+export function fetchModeAudit(): Promise<AuditTrailEntry[]> {
+  return apiGet<AuditTrailEntry[]>("/api/v1/mode/audit")
+}
+
+export function authorizeLive(
+  confirmation: string
+): Promise<ModeStatus> {
+  return apiPost<ModeStatus>("/api/v1/mode/authorize-live", { confirmation })
+}
+
+export function switchMode(mode: string): Promise<Record<string, unknown>> {
+  return apiPost<Record<string, unknown>>("/api/v1/mode/switch", { mode })
+}
+
+export function verifyBroker(): Promise<Record<string, unknown>> {
+  return apiPost<Record<string, unknown>>("/api/v1/connections/broker/verify")
+}
+
 export function fmt(n: number | null | undefined, digits = 2): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—"
   return Number(n).toLocaleString(undefined, {

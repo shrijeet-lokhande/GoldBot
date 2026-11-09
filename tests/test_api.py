@@ -112,7 +112,9 @@ def test_proposal_lifecycle_end_to_end(client):
     r = client.post(f"/api/v1/proposals/{pid}/approve")
     assert r.status_code == 200
     assert r.json()["status"] in (
-        "already_executed", "rejected_by_risk", "order_submitted",
+        "already_executed",
+        "rejected_by_risk",
+        "order_submitted",
         "not_allowed",
     )
 
@@ -120,8 +122,9 @@ def test_proposal_lifecycle_end_to_end(client):
     r = client.get("/api/v1/proposals?status=pending")
     pend = r.json()
     if pend:
-        r = client.post(f"/api/v1/proposals/{pend[0]['proposal_id']}/reject",
-                        json={"reason": "test"})
+        r = client.post(
+            f"/api/v1/proposals/{pend[0]['proposal_id']}/reject", json={"reason": "test"}
+        )
         assert r.status_code == 200
 
 

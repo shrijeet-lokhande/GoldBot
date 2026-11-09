@@ -6,9 +6,7 @@ import logging
 import sys
 
 DEFAULT_LOG_LEVEL = logging.INFO
-DEFAULT_LOG_FORMAT = (
-    "%(asctime)s %(levelname)s [%(name)s] %(filename)s:%(lineno)d - %(message)s"
-)
+DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(filename)s:%(lineno)d - %(message)s"
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
 

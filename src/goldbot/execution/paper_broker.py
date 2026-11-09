@@ -113,8 +113,8 @@ class PaperBroker(ExecutionAdapter):
         self._realised_pnl_total: float = 0.0
 
         # Persistence
-        self.persistence_path = Path(persistence_path) if persistence_path else Path(
-            f"logs/orders_{symbol}.json"
+        self.persistence_path = (
+            Path(persistence_path) if persistence_path else Path(f"logs/orders_{symbol}.json")
         )
         self._ensure_dirs()
         self._load_persistence()
@@ -166,11 +166,11 @@ class PaperBroker(ExecutionAdapter):
                         status=OrderStatus(od["status"]),
                         submitted_at=(
                             datetime.fromisoformat(od["submitted_at"])
-                            if "submitted_at" in od else datetime.now(timezone.utc)
+                            if "submitted_at" in od
+                            else datetime.now(timezone.utc)
                         ),
                         filled_at=(
-                            datetime.fromisoformat(od["filled_at"])
-                            if od.get("filled_at") else None
+                            datetime.fromisoformat(od["filled_at"]) if od.get("filled_at") else None
                         ),
                         fill_price=od.get("fill_price"),
                         filled_volume=od.get("filled_volume"),
@@ -204,7 +204,8 @@ class PaperBroker(ExecutionAdapter):
 
             logger.info(
                 "Loaded persisted state: %d orders, %d positions",
-                len(data.get("orders", [])), len(data.get("positions", [])),
+                len(data.get("orders", [])),
+                len(data.get("positions", [])),
             )
         except Exception as exc:
             logger.warning("Failed to load persistence state: %s", exc)
@@ -283,9 +284,7 @@ class PaperBroker(ExecutionAdapter):
             sl = pos.stop_loss
             tp = pos.take_profit
             if sl is not None and self._price_triggers_sl(pos, self.current_price, sl):
-                close_trade = self._close_position(
-                    pos, sl, reason="stop_loss", timestamp=timestamp
-                )
+                close_trade = self._close_position(pos, sl, reason="stop_loss", timestamp=timestamp)
                 closed.append(close_trade)
             elif tp is not None and self._price_triggers_tp(pos, self.current_price, tp):
                 close_trade = self._close_position(
@@ -380,6 +379,7 @@ class PaperBroker(ExecutionAdapter):
             # Partial fill simulation
             if self.partial_fill_probability > 0.0:
                 import random
+
                 if random.random() < self.partial_fill_probability:  # noqa: S311 (simulation)
                     fill_ratio = random.uniform(0.3, 0.7)  # noqa: S311 (simulation)
                     order.filled_volume = volume * fill_ratio
@@ -400,9 +400,8 @@ class PaperBroker(ExecutionAdapter):
 
         elif order.order_type == OrderType.LIMIT:
             market_price = self._get_mid_price()
-            should_fill = (
-                (order.side == OrderSide.BUY and market_price <= order.price)
-                or (order.side == OrderSide.SELL and market_price >= order.price)
+            should_fill = (order.side == OrderSide.BUY and market_price <= order.price) or (
+                order.side == OrderSide.SELL and market_price >= order.price
             )
             if should_fill:
                 fill_price = order.price
@@ -416,7 +415,9 @@ class PaperBroker(ExecutionAdapter):
                 order.status = OrderStatus.REJECTED
                 logger.debug(
                     "Limit order %s not filled; market %s vs limit %s",
-                    order.order_id, market_price, order.price,
+                    order.order_id,
+                    market_price,
+                    order.price,
                 )
         else:
             order.status = OrderStatus.REJECTED
@@ -424,8 +425,12 @@ class PaperBroker(ExecutionAdapter):
 
         logger.info(
             "Order %s processed: type=%s, side=%s, vol=%s, fill_price=%s, status=%s",
-            order.order_id, order.order_type, order.side, order.volume,
-            order.fill_price, order.status.value,
+            order.order_id,
+            order.order_type,
+            order.side,
+            order.volume,
+            order.fill_price,
+            order.status.value,
         )
 
     def _get_mid_price(self) -> float:
@@ -452,8 +457,7 @@ class PaperBroker(ExecutionAdapter):
             prev = existing.entry_price * existing.volume
             existing.volume += volume
             existing.entry_price = (
-                (prev + fill_price * volume) / existing.volume
-                if existing.volume else fill_price
+                (prev + fill_price * volume) / existing.volume if existing.volume else fill_price
             )
 
             existing.current_price = self.current_price
@@ -466,17 +470,34 @@ class PaperBroker(ExecutionAdapter):
             # Commission applied symmetrically
             pnl -= self.commission * close_volume
             existing.realised_pnl += pnl
-            self._record_closed_trade(existing, fill_price, close_volume, pnl,
-                                      reason="manual_close", closed_at=datetime.now(timezone.utc))
+            self._record_closed_trade(
+                existing,
+                fill_price,
+                close_volume,
+                pnl,
+                reason="manual_close",
+                closed_at=datetime.now(timezone.utc),
+            )
             remaining = volume - close_volume
             if remaining <= 0:
                 self._positions.pop(symbol, None)
-                pos = Position(symbol=symbol, side=side, volume=0.0, entry_price=fill_price,
-                               current_price=self.current_price)
+                pos = Position(
+                    symbol=symbol,
+                    side=side,
+                    volume=0.0,
+                    entry_price=fill_price,
+                    current_price=self.current_price,
+                )
             else:
-                pos = Position(symbol=symbol, side=side, volume=remaining, entry_price=fill_price,
-                               current_price=self.current_price,
-                               stop_loss=order.stop_loss, take_profit=order.take_profit)
+                pos = Position(
+                    symbol=symbol,
+                    side=side,
+                    volume=remaining,
+                    entry_price=fill_price,
+                    current_price=self.current_price,
+                    stop_loss=order.stop_loss,
+                    take_profit=order.take_profit,
+                )
                 self._positions[symbol] = pos
         else:
             pos = Position(
@@ -527,11 +548,13 @@ class PaperBroker(ExecutionAdapter):
             return
 
         if sl is not None and self._price_triggers_sl(position, current_price, sl):
-            self._close_position(position, sl, reason="stop_loss",
-                                 timestamp=datetime.now(timezone.utc))
+            self._close_position(
+                position, sl, reason="stop_loss", timestamp=datetime.now(timezone.utc)
+            )
         elif tp is not None and self._price_triggers_tp(position, current_price, tp):
-            self._close_position(position, tp, reason="take_profit",
-                                 timestamp=datetime.now(timezone.utc))
+            self._close_position(
+                position, tp, reason="take_profit", timestamp=datetime.now(timezone.utc)
+            )
 
     def _close_position(
         self,
@@ -554,8 +577,7 @@ class PaperBroker(ExecutionAdapter):
             "close_price": close_price,
             "pnl": pnl,
             "entry_time": (
-                position.opened_at.isoformat()
-                if getattr(position, "opened_at", None) else None
+                position.opened_at.isoformat() if getattr(position, "opened_at", None) else None
             ),
             "close_time": timestamp.isoformat(),
             "reason": reason,
@@ -573,13 +595,23 @@ class PaperBroker(ExecutionAdapter):
 
         logger.info(
             "Position closed for %s %s @ %.2f: reason=%s P&L=%.2f",
-            position.side.value, position.symbol, close_price, reason, pnl,
+            position.side.value,
+            position.symbol,
+            close_price,
+            reason,
+            pnl,
         )
         return trade
 
-    def _record_closed_trade(self, position: Position, close_price: float,
-                             volume: float, pnl: float, reason: str,
-                             closed_at: datetime) -> None:
+    def _record_closed_trade(
+        self,
+        position: Position,
+        close_price: float,
+        volume: float,
+        pnl: float,
+        reason: str,
+        closed_at: datetime,
+    ) -> None:
         trade = {
             "trade_id": str(uuid.uuid4()),
             "symbol": position.symbol,
@@ -658,8 +690,9 @@ class PaperBroker(ExecutionAdapter):
         pos = self.get_open_position(symbol)
         if pos is None:
             return None
-        trade = self._close_position(pos, self.current_price, reason="manual_close",
-                                     timestamp=datetime.now(timezone.utc))
+        trade = self._close_position(
+            pos, self.current_price, reason="manual_close", timestamp=datetime.now(timezone.utc)
+        )
         self._save_persistence()
         return trade
 
@@ -719,8 +752,7 @@ class PaperBroker(ExecutionAdapter):
         position size (`volume`).
         """
         direction = (
-            signal.direction.lower() if isinstance(signal.direction, str)
-            else str(signal.direction)
+            signal.direction.lower() if isinstance(signal.direction, str) else str(signal.direction)
         )
         side = OrderSide.BUY if direction in ("long", "buy") else OrderSide.SELL
 

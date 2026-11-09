@@ -194,8 +194,14 @@ class TrendPullbackStrategy(BaseStrategy):
         atr_value = value("atr")
         adx_value = value("adx")
 
-        if (ema_fast_val is None or ema_trend_val is None or ema_long_val is None
-                or rsi_value is None or atr_value is None or adx_value is None):
+        if (
+            ema_fast_val is None
+            or ema_trend_val is None
+            or ema_long_val is None
+            or rsi_value is None
+            or atr_value is None
+            or adx_value is None
+        ):
             return None  # indicators not warmed up
 
         uptrend = ema_trend_val > ema_long_val
@@ -209,8 +215,7 @@ class TrendPullbackStrategy(BaseStrategy):
         pullback_short = prior_candle.high >= ema_fast_val
 
         # --- Long setup ---
-        if (uptrend and rsi_value > self.rsi_threshold and adx_ok
-                and is_bullish and pullback_long):
+        if uptrend and rsi_value > self.rsi_threshold and adx_ok and is_bullish and pullback_long:
             stop_distance = max(atr_value * self.atr_stop_multiple, 1e-6)
             reason_codes = [
                 "ema_trend_above_ema_long",
@@ -244,8 +249,13 @@ class TrendPullbackStrategy(BaseStrategy):
             return signal
 
         # --- Short setup ---
-        if (downtrend and rsi_value < self.rsi_fall_threshold and adx_ok
-                and is_bearish and pullback_short):
+        if (
+            downtrend
+            and rsi_value < self.rsi_fall_threshold
+            and adx_ok
+            and is_bearish
+            and pullback_short
+        ):
             stop_distance = max(atr_value * self.atr_stop_multiple, 1e-6)
             reason_codes = [
                 "ema_trend_below_ema_long",

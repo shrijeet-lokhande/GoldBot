@@ -8,32 +8,45 @@ import TradeHistory from "./components/pages/TradeHistory"
 import PerformanceAnalytics from "./components/pages/PerformanceAnalytics"
 import BotConfiguration from "./components/pages/BotConfiguration"
 import SystemHealth from "./components/pages/SystemHealth"
+import TradingViewChart from "./components/pages/TradingViewChart"
+import AccountConnections from "./components/pages/AccountConnections"
 import { useEngineState } from "./lib/useEngineState"
 
 type PageName =
   | "overview"
   | "live"
+  | "tradingview"
   | "approval"
   | "positions"
   | "history"
   | "performance"
   | "config"
+  | "connections"
   | "health"
 
 const NAV: Array<[PageName, string]> = [
   ["overview", "Overview"],
   ["live", "Live market"],
+  ["tradingview", "TradingView"],
   ["approval", "Trade approval"],
   ["positions", "Open positions"],
   ["history", "Trade history"],
   ["performance", "Performance"],
   ["config", "Configuration"],
+  ["connections", "Mode & accounts"],
   ["health", "System health"],
 ]
 
 const App: React.FC = () => {
   const [page, setPage] = useState<PageName>("overview")
   const engineState = useEngineState()
+
+  // Active execution mode is displayed at all times; paper is the default
+  // and the live state is only shown when the backend reports it.
+  const modeBadgeText =
+    engineState.health?.mode === "live" ? "● LIVE" : "● PAPER"
+  const modeBadgeClass =
+    engineState.health?.mode === "live" ? "live" : "paper"
 
   const pendingCount = engineState.proposals.filter(
     (p) => p.status === "pending"
@@ -57,6 +70,7 @@ const App: React.FC = () => {
           </button>
         ))}
         <div className="spacer" />
+        <span className={`mode-badge ${modeBadgeClass}`}>{modeBadgeText}</span>
         <div className="conn">
           {engineState.connected ? "● websocket live" : "○ offline (polling)"}
         </div>
@@ -68,11 +82,13 @@ const App: React.FC = () => {
         </p>
         {page === "overview" && <Overview state={engineState} />}
         {page === "live" && <LiveMarket state={engineState} />}
+        {page === "tradingview" && <TradingViewChart />}
         {page === "approval" && <TradeApproval state={engineState} />}
         {page === "positions" && <OpenPositions state={engineState} />}
         {page === "history" && <TradeHistory />}
         {page === "performance" && <PerformanceAnalytics />}
         {page === "config" && <BotConfiguration />}
+        {page === "connections" && <AccountConnections />}
         {page === "health" && <SystemHealth state={engineState} />}
       </main>
     </div>

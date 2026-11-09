@@ -38,6 +38,8 @@ logger = logging.getLogger("goldbot.api.app")
 engine: TradingEngine | None = None
 settings: GoldBotSettings | None = None
 db_sink = None  # goldbot.database.repository.DatabaseSink | None
+_mode_mgr = None  # goldbot.execution.mode_manager.TradingModeManager | None
+_broker = None  # goldbot.execution.oanda.OandaBrokerAdapter | None
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
@@ -85,6 +87,7 @@ event_broker = EventBroker()
 # Lifespan
 # ---------------------------------------------------------------------------
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start the engine (and its replay loop) with the application."""
@@ -112,7 +115,10 @@ async def lifespan(app: FastAPI):
 
     logger.info(
         "Engine ready: %s %s bars=%d auto_approve=%s",
-        engine.symbol, settings.mode, len(engine._all_candles), auto_approve,
+        engine.symbol,
+        settings.mode,
+        len(engine._all_candles),
+        auto_approve,
     )
     if os.environ.get("GOLDBOT_START_LOOP", "1") not in ("0", "false"):
         interval = float(os.environ.get("GOLDBOT_REPLAY_INTERVAL", "1.0"))
@@ -136,6 +142,39 @@ def _engine() -> TradingEngine:
     if engine is None:
         raise HTTPException(status_code=503, detail="engine not initialised")
     return engine
+
+
+def _mode_manager():
+    """Lazily constructed trading-mode manager (paper default, audited)."""
+    global _mode_mgr
+    if _mode_mgr is None:
+        from goldbot.execution.mode_manager import TradingModeManager
+
+        _mode_mgr = TradingModeManager()
+    return _mode_mgr
+
+
+def _broker_adapter():
+    """OANDA adapter when operator credentials are configured, else None.
+
+    Credentials come from the environment only (GOLD_OANDA_*); they are never
+    persisted in the database or logged. Default environment is ``practice``
+    (the demo/sandbox host) — ``live`` must be selected explicitly.
+    """
+    global _broker
+    if _broker is None:
+        account_id = os.environ.get("GOLD_OANDA_ACCOUNT_ID")
+        token = os.environ.get("GOLD_OANDA_API_TOKEN")
+        environment = os.environ.get("GOLD_OANDA_ENVIRONMENT", "practice")
+        if account_id and token:
+            from goldbot.execution.oanda import OandaBrokerAdapter
+
+            _broker = OandaBrokerAdapter(
+                account_id=account_id,
+                api_token=token,
+                environment=environment,
+            )
+    return _broker
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +202,7 @@ app.add_middleware(
 # Error handling
 # ---------------------------------------------------------------------------
 
+
 @app.exception_handler(GoldBotError)
 async def goldbot_error_handler(_req, exc: GoldBotError):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
@@ -171,6 +211,7 @@ async def goldbot_error_handler(_req, exc: GoldBotError):
 # ---------------------------------------------------------------------------
 # Health / meta
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/health")
 def health() -> dict:
@@ -182,6 +223,128 @@ def health() -> dict:
             "rows_written": db_sink.rows_written if db_sink else 0,
         }
     return body
+
+
+@app.get("/api/v1/instrument")
+def instrument() -> dict:
+    """Canonical instrument identity + provider symbol mappings."""
+    from goldbot.core.instruments import PRIMARY_INSTRUMENT, TRADINGVIEW_CHART_URL
+
+    return {
+        "symbol": PRIMARY_INSTRUMENT.symbol,
+        "name": PRIMARY_INSTRUMENT.name,
+        "asset_type": PRIMARY_INSTRUMENT.asset_type,
+        "quote_currency": PRIMARY_INSTRUMENT.quote_currency,
+        "tradingview_symbol": PRIMARY_INSTRUMENT.tradingview,
+        "tradingview_chart_url": TRADINGVIEW_CHART_URL,
+        "oanda_symbol": PRIMARY_INSTRUMENT.symbol_for("oanda"),
+        "contract_size": PRIMARY_INSTRUMENT.contract_size,
+        "tick_size": PRIMARY_INSTRUMENT.tick_size,
+    }
+
+
+# ---------------------------------------------------------------------------
+# XAUUSD analysis engine
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/analysis")
+def analysis(refresh: bool = False) -> dict:
+    """Structured XAUUSD analysis report over the revealed candles.
+
+    Deterministic per revealed-candle state; ``refresh`` is accepted for API
+    compatibility (reports are recomputed from the same state either way).
+    """
+    eng = _engine()
+    return eng.analyze()
+
+
+# ---------------------------------------------------------------------------
+# Trading mode (paper/live) management
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/mode")
+def mode_status() -> dict:
+    return _mode_manager().status()
+
+
+@app.post("/api/v1/mode/authorize-live")
+def mode_authorize_live(payload: dict) -> dict:
+    result = _mode_manager().authorize_live(
+        confirmation=str((payload or {}).get("confirmation", "")),
+        actor=str((payload or {}).get("actor", "operator")),
+    )
+    if not result.get("authorized"):
+        raise HTTPException(status_code=403, detail=result.get("reason"))
+    return _mode_manager().status()
+
+
+@app.post("/api/v1/mode/switch")
+def mode_switch(payload: dict) -> dict:
+    result = _mode_manager().switch_mode(
+        str((payload or {}).get("mode", "")),
+        actor=str((payload or {}).get("actor", "operator")),
+    )
+    if result.get("status") == "denied":
+        raise HTTPException(status_code=403, detail=result.get("reason"))
+    return result
+
+
+@app.get("/api/v1/mode/audit")
+def mode_audit() -> list[dict]:
+    return [e.to_dict() for e in _mode_manager().audit_trail]
+
+
+# ---------------------------------------------------------------------------
+# Broker/account connections
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/v1/connections")
+def connections_status() -> dict:
+    mgr = _mode_manager()
+    broker = _broker_adapter()
+    summary = None
+    if broker is not None:
+        try:
+            summary = broker.get_account_summary()
+        except Exception as exc:
+            logger.warning("broker account summary failed: %s", exc)
+            summary = {"error": str(exc)}
+    return {
+        "mode": mgr.status(),
+        "broker": {
+            "adapter": "oanda" if broker is not None else None,
+            "environment": broker.environment if broker else None,
+            "configured": broker is not None,
+            "account_summary": summary,
+            # TradingView has no generic OAuth for bots; TV auth is not
+            # implemented (and must not be faked).
+            "tradingview_oauth_available": False,
+        },
+    }
+
+
+@app.post("/api/v1/connections/broker/verify")
+def connections_broker_verify() -> dict:
+    """Verify broker connectivity with configured credentials (read-only)."""
+    broker = _broker_adapter()
+    if broker is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "broker not configured: set GOLD_OANDA_ACCOUNT_ID, "
+                "GOLD_OANDA_API_TOKEN, GOLD_OANDA_ENVIRONMENT"
+            ),
+        )
+    ok = broker.health_check()
+    _mode_manager().set_broker_connection(ok, detail=f"oanda:{broker.environment}")
+    return {
+        "connected": ok,
+        "environment": broker.environment,
+        "account_summary": broker.get_account_summary() if ok else None,
+    }
 
 
 @app.get("/api/v1/config")
@@ -201,6 +364,7 @@ def update_config(payload: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Market data
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/quote")
 def quote() -> dict:
@@ -222,7 +386,7 @@ def candles(limit: int = Query(default=300, ge=1, le=5000)) -> dict:
         series = eng.get_indicators().get("series", {}).get(name) or []
         offset = len(revealed) - len(series)
         aligned = series[offset:] if offset > 0 else series[: len(revealed)]
-        out[name] = aligned[-len(revealed):] if revealed else []
+        out[name] = aligned[-len(revealed) :] if revealed else []
     return {
         "symbol": eng.symbol,
         "timeframe": timeframe,
@@ -246,6 +410,7 @@ def candles(limit: int = Query(default=300, ge=1, le=5000)) -> dict:
 # ---------------------------------------------------------------------------
 # Account / positions / trades / orders
 # ---------------------------------------------------------------------------
+
 
 @app.get("/api/v1/account")
 def account() -> dict:
@@ -286,6 +451,7 @@ def performance() -> dict:
 # Trade proposals (operator approval flow)
 # ---------------------------------------------------------------------------
 
+
 @app.get("/api/v1/proposals")
 def proposals(status: str | None = None) -> list[dict]:
     return _engine().get_proposals(status=status)
@@ -311,6 +477,7 @@ def reject_proposal(proposal_id: str, payload: dict | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Risk controls
 # ---------------------------------------------------------------------------
+
 
 @app.post("/api/v1/risk/kill-switch")
 def kill_switch(payload: dict) -> dict:
@@ -343,14 +510,18 @@ def risk_limits() -> dict:
 # Engine control
 # ---------------------------------------------------------------------------
 
+
 @app.post("/api/v1/engine/start")
 async def engine_start(payload: dict | None = None) -> dict:
     eng = _engine()
     interval = float((payload or {}).get("interval_seconds", 1.0))
     eng._loop_task = eng.run_background(interval_seconds=max(0.05, interval))
-    return {"status": "started", "running": True,
-            "interval_seconds": interval,
-            "health": eng.get_health()}
+    return {
+        "status": "started",
+        "running": True,
+        "interval_seconds": interval,
+        "health": eng.get_health(),
+    }
 
 
 @app.post("/api/v1/engine/stop")
@@ -376,6 +547,7 @@ def engine_status() -> dict:
 # WebSocket stream
 # ---------------------------------------------------------------------------
 
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
     await ws.accept()
@@ -383,23 +555,30 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
     # Prime the client with the current snapshot so it renders instantly.
     eng = _engine()
-    await ws.send_json({"type": "snapshot", "data": {
-        "health": eng.get_health(),
-        "quote": eng.get_quote(),
-        "account": eng.get_account(),
-        "positions": eng.get_positions(),
-        "proposals": eng.get_proposals(status="pending"),
-        "candles": [
-            {
-                "time": int(c.timestamp_utc.timestamp()),
-                "open": c.open, "high": c.high,
-                "low": c.low, "close": c.close,
-                "volume": c.volume,
-            }
-            for c in eng.candles[-300:]
-        ],
-        "indicators": eng.get_indicators(),
-    }})
+    await ws.send_json(
+        {
+            "type": "snapshot",
+            "data": {
+                "health": eng.get_health(),
+                "quote": eng.get_quote(),
+                "account": eng.get_account(),
+                "positions": eng.get_positions(),
+                "proposals": eng.get_proposals(status="pending"),
+                "candles": [
+                    {
+                        "time": int(c.timestamp_utc.timestamp()),
+                        "open": c.open,
+                        "high": c.high,
+                        "low": c.low,
+                        "close": c.close,
+                        "volume": c.volume,
+                    }
+                    for c in eng.candles[-300:]
+                ],
+                "indicators": eng.get_indicators(),
+            },
+        }
+    )
 
     try:
         while True:
@@ -457,12 +636,11 @@ if FRONTEND_DIST.is_dir():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str):
+        # API/WS namespaces must 404 with JSON - never fall back to the SPA.
+        if full_path == "api" or full_path.startswith("api/") or full_path.startswith("api/v1/"):
+            raise HTTPException(status_code=404, detail="not found")
         # Serve real files (favicon etc.), then SPA-fallback to index.html
         candidate = (FRONTEND_DIST / full_path).resolve()
-        if (
-            full_path
-            and str(candidate).startswith(str(FRONTEND_DIST))
-            and candidate.is_file()
-        ):
+        if full_path and str(candidate).startswith(str(FRONTEND_DIST)) and candidate.is_file():
             return FileResponse(candidate)
         return FileResponse(FRONTEND_DIST / "index.html")

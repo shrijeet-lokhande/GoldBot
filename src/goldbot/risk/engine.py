@@ -81,6 +81,7 @@ class RiskEngine:
                 - "position_size": Calculated position size in lots (if approved)
                 - "kill_switched": Whether the kill switch was activated
         """
+
         def reject(reason: str, kill_switched: bool = False) -> dict:
             return {
                 "decision": "reject",
@@ -102,9 +103,7 @@ class RiskEngine:
 
         # --- Step 2: Instrument metadata verification ---
         if not self.instrument_metadata.verified:
-            return reject(
-                "instrument metadata must be verified before trading"
-            )
+            return reject("instrument metadata must be verified before trading")
 
         # --- Step 3: Daily loss limit ---
         if not self.risk_limits.check_daily_loss_limit(current_equity=equity):
@@ -134,9 +133,7 @@ class RiskEngine:
 
         # --- Step 6: Max open positions check ---
         if not self.risk_limits.check_max_open_positions(current_positions=current_positions):
-            return reject(
-                f"maximum open positions ({self.risk_limits.max_open_positions}) reached"
-            )
+            return reject(f"maximum open positions ({self.risk_limits.max_open_positions}) reached")
 
         # --- Step 7: Max entries per day check ---
         if not self.risk_limits.check_max_entries_per_day():

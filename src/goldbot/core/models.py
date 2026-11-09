@@ -18,6 +18,7 @@ Timestamp = datetime
 # Signal direction — used before Signal model is defined
 # ---------------------------------------------------------------------------
 
+
 class SignalDirection:
     """Direction of a trade signal."""
 
@@ -39,6 +40,7 @@ class SignalDirection:
 # Signal reason codes
 # ---------------------------------------------------------------------------
 
+
 class SignalReason:
     """Codified reason for a signal accept/reject."""
 
@@ -58,8 +60,10 @@ class SignalReason:
 # Side / Order side
 # ---------------------------------------------------------------------------
 
+
 class OrderSide(str, Enum):
     """Side of an order: buy (long) or sell (short)."""
+
     BUY = "buy"
     SELL = "sell"
 
@@ -68,8 +72,10 @@ class OrderSide(str, Enum):
 # Order status
 # ---------------------------------------------------------------------------
 
+
 class OrderStatus(str, Enum):
     """Lifecycle status of an order."""
+
     PENDING = "pending"
     FILLED = "filled"
     PARTIAL = "partial"
@@ -82,8 +88,10 @@ class OrderStatus(str, Enum):
 # Order type
 # ---------------------------------------------------------------------------
 
+
 class OrderType(str, Enum):
     """Order execution type."""
+
     MARKET = "market"
     LIMIT = "limit"
     STOP = "stop"
@@ -99,6 +107,7 @@ class TimeInForce(str, Enum):
 # ---------------------------------------------------------------------------
 # Candle domain model
 # ---------------------------------------------------------------------------
+
 
 class Candle:
     """Normalized OHLCV candle with metadata."""
@@ -180,6 +189,7 @@ class Candle:
 # Quote domain model
 # ---------------------------------------------------------------------------
 
+
 class Quote:
     """Bid/ask quote snapshot."""
 
@@ -212,6 +222,7 @@ class Quote:
 # ---------------------------------------------------------------------------
 # Instrument metadata
 # ---------------------------------------------------------------------------
+
 
 class InstrumentMetadata:
     """Verified instrument/contract specifications.
@@ -294,6 +305,7 @@ class InstrumentMetadata:
 # Signal domain model
 # ---------------------------------------------------------------------------
 
+
 class Signal:
     """Structured trade signal from the strategy engine.
 
@@ -366,6 +378,7 @@ class Signal:
 # Indicator result model
 # ---------------------------------------------------------------------------
 
+
 class IndicatorResult:
     """Container for indicator calculation results.
 
@@ -386,6 +399,7 @@ class IndicatorResult:
 # ---------------------------------------------------------------------------
 # Order domain model
 # ---------------------------------------------------------------------------
+
 
 class Order:
     """Represents a broker order submitted by the execution layer.
@@ -471,8 +485,11 @@ class Order:
     @property
     def is_complete(self) -> bool:
         return self.status in (
-            OrderStatus.FILLED, OrderStatus.PARTIAL,
-            OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.TIMEOUT,
+            OrderStatus.FILLED,
+            OrderStatus.PARTIAL,
+            OrderStatus.CANCELLED,
+            OrderStatus.REJECTED,
+            OrderStatus.TIMEOUT,
         )
 
     def __repr__(self) -> str:
@@ -485,6 +502,7 @@ class Order:
 # ---------------------------------------------------------------------------
 # Fill event
 # ---------------------------------------------------------------------------
+
 
 class FillEvent:
     """Event emitted when an order is filled.
@@ -519,6 +537,7 @@ class FillEvent:
 # ---------------------------------------------------------------------------
 # Position domain model
 # ---------------------------------------------------------------------------
+
 
 class Position:
     """Represents an open position in the account.
@@ -583,6 +602,7 @@ class Position:
 # Order event
 # ---------------------------------------------------------------------------
 
+
 class OrderEvent:
     """Event emitted during order lifecycle transitions."""
 
@@ -607,6 +627,7 @@ class OrderEvent:
 # ---------------------------------------------------------------------------
 # Data quality status
 # ---------------------------------------------------------------------------
+
 
 class DataQualityStatus:
     """Status of data quality for a given data source."""

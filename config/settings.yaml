@@ -14,6 +14,9 @@ asset_type: spot
 quote_currency: USD
 metadata_source: manual_unverified
 metadata_verified: false
+# TradingView chart reference (display layer only — never used as a data
+# source by the analysis or execution engines).
+tradingview_symbol: OANDA:XAUUSD
 
 # Market data settings
 market_data_provider: csv

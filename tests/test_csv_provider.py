@@ -24,8 +24,10 @@ def provider(fixture_csv) -> CsvMarketDataProvider:
 
 def test_loads_fixture_bars(provider):
     candles = provider.get_historical_bars(
-        "XAUUSD", "15m",
-        datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC),
+        "XAUUSD",
+        "15m",
+        datetime(1970, 1, 1, tzinfo=UTC),
+        datetime.now(UTC),
     )
     assert len(candles) > 1000
     assert candles[0].open == pytest.approx(1950.00)
@@ -35,8 +37,10 @@ def test_loads_fixture_bars(provider):
 
 def test_bars_sorted_ascending(provider):
     candles = provider.get_historical_bars(
-        "XAUUSD", "15m",
-        datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC),
+        "XAUUSD",
+        "15m",
+        datetime(1970, 1, 1, tzinfo=UTC),
+        datetime.now(UTC),
     )
     stamps = [c.timestamp_utc for c in candles]
     assert stamps == sorted(stamps)
@@ -44,13 +48,15 @@ def test_bars_sorted_ascending(provider):
 
 def test_range_filter(provider):
     candles = provider.get_historical_bars(
-        "XAUUSD", "15m",
+        "XAUUSD",
+        "15m",
         datetime(2024, 1, 15, 10, 0, tzinfo=UTC),
         datetime(2024, 1, 15, 11, 0, tzinfo=UTC),
     )
     assert all(
         datetime(2024, 1, 15, 10, 0, tzinfo=UTC)
-        <= c.timestamp_utc <= datetime(2024, 1, 15, 11, 0, tzinfo=UTC)
+        <= c.timestamp_utc
+        <= datetime(2024, 1, 15, 11, 0, tzinfo=UTC)
         for c in candles
     )
     assert candles  # the fixture spans this window
@@ -59,8 +65,9 @@ def test_range_filter(provider):
 def test_missing_file_raises(tmp_path):
     provider = CsvMarketDataProvider(tmp_path / "nope.csv")
     with pytest.raises(DataError):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )
 
 
 def test_missing_required_columns(tmp_path):
@@ -68,8 +75,9 @@ def test_missing_required_columns(tmp_path):
     bad.write_text("ts,open,close\n2024-01-01T00:00:00Z,1,2\n")
     provider = CsvMarketDataProvider(bad)
     with pytest.raises(DataError, match="required columns"):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )
 
 
 def test_empty_csv(tmp_path):
@@ -77,90 +85,81 @@ def test_empty_csv(tmp_path):
     empty.write_text("timestamp,open,high,low,close\n")
     provider = CsvMarketDataProvider(empty)
     with pytest.raises(DataError, match="empty"):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )
 
 
 def test_invalid_quote_rejected(tmp_path):
     bad = tmp_path / "bad_values.csv"
-    bad.write_text(
-        "timestamp,open,high,low,close\n"
-        "2024-01-01T00:00:00Z,x,y,z,1.0\n"
-    )
+    bad.write_text("timestamp,open,high,low,close\n2024-01-01T00:00:00Z,x,y,z,1.0\n")
     provider = CsvMarketDataProvider(bad)
     with pytest.raises(DataError, match="Non-numeric"):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )
 
 
 def test_ohlc_integrity_violation(tmp_path):
     # high < open must be rejected
     bad = tmp_path / "bad_ohlc.csv"
-    bad.write_text(
-        "timestamp,open,high,low,close\n"
-        "2024-01-01T00:00:00Z,10.0,5.0,4.0,9.0\n"
-    )
+    bad.write_text("timestamp,open,high,low,close\n2024-01-01T00:00:00Z,10.0,5.0,4.0,9.0\n")
     provider = CsvMarketDataProvider(bad)
     with pytest.raises(DataError, match="high"):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )
 
 
 def test_low_above_open_rejected(tmp_path):
     bad = tmp_path / "bad_low.csv"
-    bad.write_text(
-        "timestamp,open,high,low,close\n"
-        "2024-01-01T00:00:00Z,10.0,15.0,11.0,9.0\n"
-    )
+    bad.write_text("timestamp,open,high,low,close\n2024-01-01T00:00:00Z,10.0,15.0,11.0,9.0\n")
     provider = CsvMarketDataProvider(bad)
     with pytest.raises(DataError, match="low"):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )
 
 
 def test_unix_seconds_timestamps(tmp_path):
     ok = tmp_path / "unix.csv"
     ok.write_text(
-        "timestamp,open,high,low,close\n"
-        "1705936800,10.0,15.0,9.0,12.0\n"  # 2024-01-22T15:20:00Z
+        "timestamp,open,high,low,close\n1705936800,10.0,15.0,9.0,12.0\n"  # 2024-01-22T15:20:00Z
     )
     provider = CsvMarketDataProvider(ok)
-    candles = provider.get_historical_bars("XAUUSD", "15m",
-                                           datetime(1970, 1, 1, tzinfo=UTC),
-                                           datetime.now(UTC))
+    candles = provider.get_historical_bars(
+        "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+    )
     assert len(candles) == 1
     assert candles[0].timestamp_utc.year == 2024
 
 
 def test_milliseconds_timestamps(tmp_path):
     ok = tmp_path / "ms.csv"
-    ok.write_text(
-        "timestamp,open,high,low,close\n"
-        "1705936800000,10.0,15.0,9.0,12.0\n"
-    )
+    ok.write_text("timestamp,open,high,low,close\n1705936800000,10.0,15.0,9.0,12.0\n")
     provider = CsvMarketDataProvider(ok)
-    candles = provider.get_historical_bars("XAUUSD", "15m",
-                                           datetime(1970, 1, 1, tzinfo=UTC),
-                                           datetime.now(UTC))
+    candles = provider.get_historical_bars(
+        "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+    )
     assert candles[0].timestamp_utc.year == 2024
 
 
 def test_garbage_timestamp_rejected(tmp_path):
     bad = tmp_path / "garbage.csv"
-    bad.write_text(
-        "timestamp,open,high,low,close\n"
-        "not-a-time,10.0,15.0,9.0,12.0\n"
-    )
+    bad.write_text("timestamp,open,high,low,close\nnot-a-time,10.0,15.0,9.0,12.0\n")
     provider = CsvMarketDataProvider(bad)
     with pytest.raises((ValueError, DataError)):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )
 
 
 def test_latest_bar_and_quote_conventions(provider):
     candles = provider.get_historical_bars(
-        "XAUUSD", "15m",
-        datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC),
+        "XAUUSD",
+        "15m",
+        datetime(1970, 1, 1, tzinfo=UTC),
+        datetime.now(UTC),
     )
     latest = provider.get_latest_bar("XAUUSD", "15m")
     assert isinstance(latest, Candle)
@@ -179,5 +178,6 @@ def test_cached_results_consistent(provider):
 def test_provider_without_path_raises():
     provider = CsvMarketDataProvider()
     with pytest.raises(DataError):
-        provider.get_historical_bars("XAUUSD", "15m",
-                                     datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC))
+        provider.get_historical_bars(
+            "XAUUSD", "15m", datetime(1970, 1, 1, tzinfo=UTC), datetime.now(UTC)
+        )

@@ -69,9 +69,12 @@ def test_atr_gap_move_increases_true_range():
     high.loc[39] = 121.0
     low.loc[39] = 99.0
     result = atr(high, low, close, 14)
-    prior = atr(high.iloc[:-1].reset_index(drop=True),
-                low.iloc[:-1].reset_index(drop=True),
-                close.iloc[:-1].reset_index(drop=True), 14)
+    prior = atr(
+        high.iloc[:-1].reset_index(drop=True),
+        low.iloc[:-1].reset_index(drop=True),
+        close.iloc[:-1].reset_index(drop=True),
+        14,
+    )
     assert result.iloc[-1] > prior.iloc[-1]
 
 

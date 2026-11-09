@@ -96,16 +96,14 @@ class GoldBotSettings(BaseSettings):
             raise ValueError("mode must be 'paper' or 'live'")
         return v
 
-    @field_validator("risk_per_trade_pct", "daily_loss_limit_pct",
-                     "weekly_drawdown_limit_pct")
+    @field_validator("risk_per_trade_pct", "daily_loss_limit_pct", "weekly_drawdown_limit_pct")
     @classmethod
     def risk_percentages_must_be_positive(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("risk percentages must be positive")
         return v
 
-    @field_validator("max_open_positions", "max_entries_per_day",
-                     "max_consecutive_losses")
+    @field_validator("max_open_positions", "max_entries_per_day", "max_consecutive_losses")
     @classmethod
     def counts_must_be_positive(cls, v: int) -> int:
         if v < 1:
@@ -124,20 +122,18 @@ class GoldBotSettings(BaseSettings):
         """Safety gates required before live mode is accepted."""
         if self.mode == "live":
             missing = [
-                name for name, val in (
+                name
+                for name, val in (
                     ("instrument_symbol", self.instrument_symbol),
                     ("instrument_venue", self.instrument_venue),
                     ("asset_type", self.asset_type),
-                ) if not val
+                )
+                if not val
             ]
             if missing:
-                raise ValueError(
-                    f"fields required when mode is 'live': {missing}"
-                )
+                raise ValueError(f"fields required when mode is 'live': {missing}")
             if not self.metadata_verified:
-                raise ValueError(
-                    "metadata_verified must be true when mode is 'live'"
-                )
+                raise ValueError("metadata_verified must be true when mode is 'live'")
             # v1 ships the paper broker only: live orders are impossible.
             self.allow_live_orders = False
             self.allow_martingale = False
@@ -202,6 +198,7 @@ def load_settings(
             except (ValueError, TypeError):
                 logger_name = __name__
                 import logging
+
                 logging.getLogger(logger_name).warning(
                     "Ignoring non-conforming env override %s=%s", env_key, raw
                 )

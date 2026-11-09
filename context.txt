@@ -1,0 +1,96 @@
+# GoldBot — Development Context (context.txt)
+#
+# PERSISTENT HANDOFF FILE. Update after every significant milestone and at
+# >=80% context-window utilization (estimate conservatively; this runtime
+# cannot inspect its true window, so checkpoint after each completed phase).
+# Never store passwords, API keys, broker secrets, or tokens here.
+
+## Project
+GoldBot — XAUUSD (gold) trading analysis & execution platform.
+Backend: Python 3.12 + FastAPI (src/goldbot), React/Vite dashboard (frontend/),
+SQLAlchemy + Alembic (migrations/), pytest suite (tests/), uv for deps.
+Primary instrument: XAUUSD. TradingView chart reference: OANDA:XAUUSD.
+
+## State at start of this session (verified)
+- git: clean tree at commit 91e1bdc "GoldBot v0.1.0" (untracked: .run/, scripts/, pycache).
+- Tests: 148 passing baseline (engine, strategy, indicators, risk, broker,
+  CSV, config, API, WebSocket, DB). ruff + mypy clean. Frontend builds.
+- Architecture: CsvMarketDataProvider -> TradingEngine (15m candle replay,
+  wraps; intrabar SL/TP walk) -> TrendPullbackStrategy -> RiskEngine/RiskLimits/
+  KillSwitch -> PaperBroker (spread/slippage/fees; JSON ledger
+  logs/orders_XAUUSD.json) -> FastAPI REST /api/v1/* + WS /ws -> React SPA.
+- DB: optional mirror via DatabaseSink; 14 tables; alembic revision 0cbdf466ded8.
+- Mode: paper only by design in v1 (allow_live_orders forced False in config
+  validator). Instrument already XAUUSD (settings.instrument_symbol).
+
+## Work performed this session (XAUUSD platform upgrade)
+Statuses below are updated as work completes. See "Next actions" for the
+authoritative remaining plan.
+
+| Item | Status | Files |
+|---|---|---|
+| context.txt created | PLANNED | context.txt |
+| Instrument identity module (canonical symbol + provider map) | PLANNED | src/goldbot/core/instruments.py |
+| Indicators: sma, macd, bollinger, stoch_rsi, vwap | PLANNED | src/goldbot/indicators/oscillators.py, bands.py, volume.py, trend.py(sma) |
+| Fibonacci retracement/extensions | PLANNED | src/goldbot/indicators/fibonacci.py |
+| Support/resistance levels | PLANNED | src/goldbot/indicators/levels.py |
+| Market structure engine (swings, BOS, CHOCH, sweeps, EQH/EQL, FVG, order blocks, S/D zones, consolidation, breakouts, rejections) | PLANNED | src/goldbot/analysis/structure.py |
+| Multi-timeframe resampler (15m -> 30m/1h/4h/1d/1w; 1m/5m only if native data present) | PLANNED | src/goldbot/analysis/timeframes.py |
+| XAUUSD analysis engine + report model (regime, bias, levels, scenarios, entry/SL/TP/RR, confidence, avoid-reasons) | PLANNED | src/goldbot/analysis/engine.py, report.py |
+| Fundamental/macro framework (event model + provider interface; explicitly reports UNAVAILABLE without a licensed provider) | PLANNED | src/goldbot/analysis/fundamentals.py |
+| /api/v1/analysis endpoint | PLANNED | src/goldbot/api/app.py |
+| Trading mode manager (paper/live, audit log, explicit confirmation, no silent switch, position-transition safety) | PLANNED | src/goldbot/execution/mode_manager.py |
+| OANDA v20 REST broker adapter (practice/demo + live, account/positions/orders, reconciliation, idempotent client order IDs) | PLANNED | src/goldbot/execution/oanda.py |
+| Live risk safeguards (max exposure, max order size, min RR, mandatory SL, data-freshness, spread validation, volatility guard, session restrictions, duplicate-order guard) | PLANNED | src/goldbot/risk/limits.py, src/goldbot/risk/engine.py |
+| DB tables: analysis_reports, audit_events, account_connections, trading_mode_changes + alembic revision | PLANNED | src/goldbot/database/models.py, migrations/versions/ |
+| Backtest metrics: expectancy, sharpe, avg RR, consecutive wins/losses, walk-forward warning | PLANNED | src/goldbot/engine.py (get_performance), src/goldbot/backtest/metrics.py |
+| TradingView chart page (official widget embed, OANDA:XAUUSD default, timeframe selector, fullscreen, responsive) | PLANNED | frontend/src/components/pages/TradingViewChart.tsx |
+| Mode selector + Account connections pages (paper default; live requires connected broker + typed confirmation) | PLANNED | frontend/src/components/pages/AccountConnections.tsx, App.tsx |
+| Tests for all of the above | PLANNED | tests/test_instruments.py, test_analysis.py, test_structure.py, test_mode_manager.py, test_oanda_adapter.py, test_risk_safeguards.py, test_backtest_metrics.py |
+
+## Architecture & technical decisions
+1. Internal canonical symbol is the plain string "XAUUSD". Provider-specific
+   symbols are mapped, never used internally: tradingview "OANDA:XAUUSD",
+   oanda "XAU_USD", csv "XAUUSD".
+2. TradingView is charting/display ONLY. Integration = the free official
+   TradingView embeddable Advanced Chart widget (script embed), which is the
+   supported no-license-required method. No scraping; TV data never feeds the
+   analysis/trading pipeline. Machine data comes from the CSV replay dataset
+   (and, when configured by the operator, a licensed REST provider).
+3. TradingView consumer accounts offer no generic OAuth for bots; therefore
+   NO "Sign in with TradingView" is implemented (fake auth is prohibited).
+   Broker auth = OANDA v20 personal access token (Bearer), stored only via
+   env/config, never in DB plaintext.
+4. Live execution = direct broker API (OANDA v20 REST), defaulting to
+   practice (sandbox/demo) host. Live requires: connected broker account +
+   explicit typed confirmation + settings validation. Paper and live adapters
+   are separate code paths; engine mode gates which one receives orders.
+5. Analysis confidence is a heuristic 0-100 score with explanation strings;
+   it is NOT presented as a calibrated probability.
+6. Fundamental data is modelled but reports "unavailable" unless the operator
+   configures a licensed provider; missing data never fabricates analysis.
+7. Migrations are additive (new tables only); no existing data is dropped.
+
+## Database / config changes
+- New tables: analysis_reports, audit_events, account_connections,
+  trading_mode_changes (alembic revision added on top of 0cbdf466ded8).
+- settings.yaml additions: tradingview_symbol, analysis timeframes,
+  live-mode guard fields (see .env.example: GOLD_OANDA_API_TOKEN,
+  GOLD_OANDA_ENVIRONMENT=practice|live, GOLD_OANDA_ACCOUNT_ID).
+
+## Test results (fill after each run)
+- Baseline at session start: 148 passed, ruff clean, mypy clean.
+- (update after suite runs)
+
+## Outstanding issues / limitations
+- 1m/5m analysis requires native 1m data; CSV sample is 15m (resampler
+  provides 30m/1h/4h/1d/1w from it and marks 1m/5m unavailable).
+- Live order execution requires operator-supplied OANDA practice account
+  credentials; not exercised against a real account in this session.
+- Fundamental data needs a licensed provider configured by the operator.
+
+## Exact next actions (kept current — resume here)
+1. Implement the items above (see table statuses).
+2. Run: make check (ruff+mypy+pytest) and frontend npm run build; fix until green.
+3. Update "Test results" and this Next-actions list after each milestone.
+4. Write the final completion report (item 12 of the brief) at session end.
