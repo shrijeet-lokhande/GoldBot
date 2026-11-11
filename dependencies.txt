@@ -1,0 +1,98 @@
+# GoldBot — Complete Dependency Manifest
+#
+# This file lists EVERYTHING the project needs to run: system-level tools,
+# language runtimes, package managers, Python packages, and Node packages.
+# It is a reference map, not an installer — see README.md
+# ("Installation & Environment Setup") for step-by-step install commands on
+# Windows and Linux. requirements.txt contains the machine-installable
+# Python package list (pip install -r requirements.txt).
+
+# ---------------------------------------------------------------------------
+# 1. Runtime requirements (hard minimums)
+# ---------------------------------------------------------------------------
+# Python          3.12+          (backend; 3.12 or 3.13 both work)
+# Node.js         18+            (dashboard build; 20 LTS recommended)
+# npm             9+             (ships with Node)
+# Git             2.30+          (clone + push)
+#
+# NOTE: the project does NOT run on Python < 3.12 (uses 3.12+ typing and
+# stdlib features).
+
+# ---------------------------------------------------------------------------
+# 2. Package managers (one of the two paths is required)
+# ---------------------------------------------------------------------------
+# uv              0.5+    RECOMMENDED Python manager on Linux/macOS/WSL.
+#                         Installs the exact locked environment from
+#                         uv.lock with `uv sync` (fast, reproducible).
+# pip             23+     Fallback path on Windows native or locked-down
+#                         machines: `pip install -r requirements.txt`.
+#                         The pinned versions in requirements.txt match
+#                         uv.lock, so both paths give the same versions.
+
+# ---------------------------------------------------------------------------
+# 3. Python packages (complete list — see requirements.txt for pinned
+#    versions; versions below are minimums)
+# ---------------------------------------------------------------------------
+# CORE BACKEND
+# pydantic                 >=2.5    config validation & settings
+# pydantic-settings        >=2.1    GOLD_* env-var overrides
+# python-dotenv            >=1.0    .env file loading
+# pyyaml                   >=6.0    config/settings.yaml parsing
+# click                    >=8.1    goldbot CLI
+#
+# NUMERIC / DATA
+# pandas                   >=2.2    candle & indicator series
+# numpy                    >=2.0    Wilder recursions, model math
+#
+# API SERVER
+# fastapi                  >=0.115  REST + WebSocket
+# uvicorn[standard]        >=0.30   ASGI server (incl. watchfiles, websockets)
+#
+# PERSISTENCE (optional at runtime, import-safe)
+# sqlalchemy               >=2.0    ORM models
+# alembic                  >=1.13   additive migrations
+# psycopg[binary]          >=3.1    PostgreSQL driver (optional Postgres mirror)
+#
+# TESTS + QUALITY GATES
+# pytest                   >=8.0    test runner
+# pytest-asyncio           >=0.25   async test support
+# httpx                    >=0.27   FastAPI TestClient transport
+# ruff                     >=0.8    linter
+# mypy                     >=1.0    type checker
+
+# ---------------------------------------------------------------------------
+# 4. Frontend packages (installed with `npm ci` from
+#    frontend/package.json + package-lock.json — do NOT hand-install)
+# ---------------------------------------------------------------------------
+# react / react-dom        UI framework
+# typescript               strict-mode compiler (tsc)
+# vite + @vitejs/plugin-react  dev server & production build
+# lightweight-charts       candlestick chart (TradingView's OSS library)
+# eslint + typescript-eslint   lint toolchain
+# (exact versions: frontend/package.json)
+
+# ---------------------------------------------------------------------------
+# 5. System / OS-level tools (Linux packages; equivalents on Windows via
+#    the installers in README.md)
+# ---------------------------------------------------------------------------
+# curl                     health checks in start_goldbot.sh
+# make                     Makefile targets (test/lint/type-check/check)
+# build-essential          C compiler toolchain — only needed if a Python
+#                          package must compile from source (rare; wheels
+#                          exist for all listed deps on 3.12)
+#
+# OPTIONAL DATABASE
+# PostgreSQL 15+           only if you enable the optional DB mirror via
+#                          GOLD_DATABASE_URL (otherwise fully optional —
+#                          SQLite is used for tests, JSON ledger for runs)
+
+# ---------------------------------------------------------------------------
+# 6. External services (credentials, never bundled)
+# ---------------------------------------------------------------------------
+# OANDA v20 practice/live REST   only for live-mode execution and
+#                                scripts/fetch_history.py. Requires your
+#                                own GOLD_OANDA_ACCOUNT_ID / API token.
+#                                The app is fully functional in paper
+#                                mode without any broker account.
+# TradingView                    chart DISPLAY only (free public embed);
+#                                no account, key, or scraping involved.

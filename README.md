@@ -44,6 +44,136 @@ Configuration · Mode & accounts · System health.
 
 ---
 
+## Installation & Environment Setup (Windows + Linux)
+
+Everything below is also summarized in `dependencies.txt` (the complete
+dependency manifest); the machine-installable Python package list is
+`requirements.txt`.
+
+### Linux (Ubuntu 22.04+ / Debian 12+; Fedora notes inline)
+
+```bash
+# 1. System prerequisites
+sudo apt update
+sudo apt install -y git curl make build-essential
+# Fedora equivalent: sudo dnf install -y git curl make gcc gcc-c++
+
+# 2. Python 3.12+ (Ubuntu 24.04 ships 3.12; older Ubuntus use deadsnakes)
+sudo apt install -y python3.12 python3.12-venv    # if unavailable:
+# sudo add-apt-repository ppa:deadsnakes/ppa && sudo apt update \
+#   && sudo apt install -y python3.12 python3.12-venv
+python3.12 --version               # must print 3.12+
+
+# 3. Node.js 20 LTS (NodeSource) — or use your distro's nodejs if >= 18
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node --version                     # must print v18+ (v20 recommended)
+
+# 4. uv (recommended Python package manager — fast, locked to uv.lock)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Fedora: curl -LsSf https://astral.sh/uv/install.sh | sh  (same installer)
+
+# 5. Project environment
+cd GoldBot
+uv sync                            # creates .venv with EXACT locked versions
+(cd frontend && npm ci)            # dashboard deps (clean install from lock)
+
+# 6. Configure
+cp .env.example .env               # edit if needed; defaults run in paper mode
+
+# 7. Verify
+./start.sh --check                 # validates layout, imports, frontend
+make check                         # ruff + mypy + full test suite
+```
+
+Run with `./start.sh` (backend + frontend) — see Quick start above.
+
+### Windows
+
+Two supported paths. **WSL2 (recommended)** gives you the exact Linux
+environment above and enables `./start.sh`/`make` as written:
+
+**Option A — WSL2 (Ubuntu):**
+```powershell
+wsl --install -d Ubuntu-24.04      # from an elevated PowerShell, then reboot
+```
+…then follow the **Linux** section inside the WSL terminal. Clone the repo
+into the WSL filesystem (e.g. `~/GoldBot`) for best performance.
+
+**Option B — native Windows (no WSL):**
+```powershell
+# 1. Install the toolchain (winget or the official installers)
+winget install Git.Git Python.Python.3.12 OpenJS.NodeJS.LTS
+# (or: python.org installer — CHECK "Add python.exe to PATH" —
+#  nodejs.org LTS installer, git-scm.com installer)
+
+# 2. Clone and set up Python deps with pip (uv works on Windows too)
+git clone https://github.com/shrijeet-lokhande/GoldBot.git
+cd GoldBot
+python -m venv .venv
+.venv\Scripts\activate             # PowerShell: .venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -e .                   # installs the goldbot package itself
+
+# 3. Frontend deps
+cd frontend
+npm ci
+cd ..
+
+# 4. Configure
+copy .env.example .env             # defaults run in paper mode
+
+# 5. Verify
+python -m compileall -q src\goldbot
+pytest -q                          # full test suite
+python -m uvicorn goldbot.api.app:app --port 8000   # start the backend
+# dashboard: cd frontend && npm run dev  (proxies /api + /ws to :8000)
+```
+
+Native-Windows notes:
+- `start.sh` is a bash script — run it from **Git Bash**, or from WSL, or
+  start the services manually as shown in step 5.
+- All backend features (paper trading, analysis, prediction, DB mirror,
+  OANDA adapter) work identically on native Windows; only the shell
+  wrapper differs.
+
+### Alternative: pip + venv on Linux (no uv)
+
+```bash
+cd GoldBot
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt    # pinned to the same versions as uv.lock
+pip install -e .
+(cd frontend && npm ci)
+./start.sh
+```
+
+### Optional: PostgreSQL mirror
+
+The app runs without a database (JSON ledger + optional SQLite). To enable
+the optional PostgreSQL mirror: install PostgreSQL 15+, create a database,
+then set in `.env`:
+```
+GOLD_DATABASE_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/goldbot
+uv run alembic upgrade head        # or: .venv/Scripts/python -m alembic ...
+```
+All migrations are additive — they never delete data.
+
+### Common issues
+
+| Symptom | Fix |
+|---|---|
+| `No module named 'goldbot'` after pip install | Run `pip install -e .` from the repo root, or ensure `PYTHONPATH` includes `src/` (uv does this automatically). |
+| `npm ci` fails | Run it inside `frontend/`, with Node 18+ (`node --version`). |
+| Backend port 8000 busy | `GOLDBOT_BACKEND_PORT=8001 ./start.sh --backend` (or `--stop` first). |
+| Venv broken after moving/cloning the folder | Recreate it: delete `.venv`, re-run `uv sync` (or the pip path). |
+| `python` resolves to 3.11 or older | Use `python3.12` explicitly, or `py -3.12` on Windows. |
+
+---
+
 ## Architecture
 
 ```
