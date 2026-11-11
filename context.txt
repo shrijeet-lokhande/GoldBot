@@ -78,3 +78,21 @@ Primary instrument: XAUUSD. TradingView chart reference: OANDA:XAUUSD.
 
 ## Commit
 - Session work committed as c369212 (tree clean).
+
+---
+## Session 2026-11-11 — system-wide XAUUSD adaptation + repository consolidation (PLANNED)
+Baseline verified: clean tree 37aac19, checkpoint matches repo.
+Phase plan:
+| Phase | Item | Status |
+|---|---|---|
+| P1 | Instrument dependency map (grep audit complete; no legacy symbols exist; hardcoded XAUUSD fallbacks to centralize: main.py x2, repository.py x3, engine.py, analysis/engine.py, oanda.py close default, frontend TV symbol + subtitle) | IN PROGRESS |
+| P1 | Remove runtime artifact .run/backend.pid from index; gitignore /.run/ | DONE |
+| P2 | Gold price-action additions: session highs/lows (Asia/London/NY), previous-day H/L, previous-week H/L with rationale | PLANNED |
+| P2 | Threshold rationale documentation (docs/THRESHOLDS.md) | PLANNED |
+| P2 | Indicator validation vs independently computed reference values | PLANNED |
+| P3 | Prediction pipeline: features, transparent statistical model + baselines, chronological split, walk-forward, error metrics, calibration; /api/v1/prediction; frontend panel; honest data-availability limitation + acquisition pipeline script | PLANNED |
+| P4 | Broker real contract specs: OANDA instrument details endpoint, spec-driven position sizing (tick size/value, volume step, min/max, account-currency conversion), reject on inconsistent specs | PLANNED |
+| P5 | DB provenance migration: instrument column on market/orders/positions/trades tables backfilled from symbol (no relabeling); data_provenance doc | PLANNED |
+| P6 | Frontend: analysis+prediction panel, data-source labels + timestamps, instrument subtitle from API | PLANNED |
+| P7 | Consolidation: rename goldbot -> GoldBot, start.sh/stop.sh wrappers, path audit, README/AGENTS.md, GitHub readiness | PLANNED |
+| P9 | Full validation: pytest, ruff, mypy, frontend build, E2E from consolidated location | PLANNED |
