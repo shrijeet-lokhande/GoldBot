@@ -10,6 +10,7 @@ import click
 
 from goldbot.core.config import GoldBotSettings, load_settings
 from goldbot.core.exceptions import GoldBotError
+from goldbot.core.instruments import PRIMARY_INSTRUMENT
 from goldbot.core.logging import get_logger, setup_logging
 
 logger = get_logger("goldbot.cli")
@@ -105,7 +106,7 @@ def data_import(file: str) -> None:
     provider = CsvMarketDataProvider(csv_path)
     try:
         candles = provider.get_historical_bars(
-            symbol="XAUUSD",
+            symbol=PRIMARY_INSTRUMENT.symbol,
             timeframe="15m",
             start=dt.min.replace(tzinfo=timezone.utc),
             end=dt.now(timezone.utc),
@@ -139,7 +140,7 @@ def data_status(file: str) -> None:
     provider = CsvMarketDataProvider(csv_path)
     try:
         candles = provider.get_historical_bars(
-            symbol="XAUUSD",
+            symbol=PRIMARY_INSTRUMENT.symbol,
             timeframe="15m",
             start=dt.min.replace(tzinfo=timezone.utc),
             end=dt.now(timezone.utc),

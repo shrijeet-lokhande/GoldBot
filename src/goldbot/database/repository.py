@@ -19,6 +19,7 @@ from typing import Any
 from sqlalchemy.orm import sessionmaker
 
 from goldbot.core.config import GoldBotSettings
+from goldbot.core.instruments import PRIMARY_INSTRUMENT
 from goldbot.database.models import (
     Base,
     CompletedTrade,
@@ -113,7 +114,7 @@ class DatabaseSink:
 
     def _handle_proposal(self, data: dict) -> None:
         created = _parse_dt(data.get("created_at"))
-        symbol = data.get("symbol") or "XAUUSD"
+        symbol = data.get("symbol") or PRIMARY_INSTRUMENT.symbol
         direction = data.get("direction") or "long"
         entry_price = float(data.get("entry_price") or 0.0)
         row = TradeProposal(
@@ -160,7 +161,7 @@ class DatabaseSink:
         fill_price = data.get("fill_price")
         order = Order(
             id=order_id,
-            symbol=data.get("symbol") or "XAUUSD",
+            symbol=data.get("symbol") or PRIMARY_INSTRUMENT.symbol,
             side=data.get("side") or "buy",
             order_type="market",
             volume=float(data.get("volume") or 0.0),
@@ -183,7 +184,7 @@ class DatabaseSink:
         exit_time = _parse_dt(data.get("close_time"))
         pnl = float(data.get("pnl") or 0.0)
         row = CompletedTrade(
-            symbol=data.get("symbol") or "XAUUSD",
+            symbol=data.get("symbol") or PRIMARY_INSTRUMENT.symbol,
             direction=data.get("side") or "buy",
             entry_price=float(data.get("entry_price") or 0.0),
             exit_price=float(data.get("close_price") or 0.0),

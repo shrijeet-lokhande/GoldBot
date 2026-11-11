@@ -23,7 +23,9 @@ import pandas as pd
 from goldbot.analysis import timeframes as tf
 from goldbot.analysis.fundamentals import MacroDataProvider, UnavailableMacroProvider
 from goldbot.analysis.report import AnalysisReport, ConfidenceLevel, TradePlan, now_iso
+from goldbot.analysis.session_levels import reference_levels
 from goldbot.analysis.structure import MarketStructure, analyze_structure
+from goldbot.core.instruments import PRIMARY_INSTRUMENT
 from goldbot.core.models import Candle
 from goldbot.indicators import (
     adx,
@@ -89,7 +91,7 @@ class AnalysisEngine:
     def analyze(
         self,
         candles: list[Candle],
-        symbol: str = "XAUUSD",
+        symbol: str | None = None,
     ) -> AnalysisReport:
         """Generate the structured analysis report.
 
@@ -102,6 +104,7 @@ class AnalysisEngine:
                 f"insufficient data for analysis: {len(candles)} bars "
                 "(>= 30 required); not manufacturing an analysis"
             )
+        symbol = symbol or candles[0].symbol or PRIMARY_INSTRUMENT.symbol
 
         # --- per-timeframe series -----------------------------------------
         series: dict[str, list[Candle]] = {}
@@ -192,6 +195,7 @@ class AnalysisEngine:
             structure=base_structure.to_dict(),
             fundamentals=fundamentals,
             timeframes=timeframe_votes,
+            reference_levels=reference_levels(series[self.base_timeframe]),
         )
 
     # ------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import "./index.css"
 import Overview from "./components/pages/Overview"
 import LiveMarket from "./components/pages/LiveMarket"
@@ -11,6 +11,7 @@ import SystemHealth from "./components/pages/SystemHealth"
 import TradingViewChart from "./components/pages/TradingViewChart"
 import AccountConnections from "./components/pages/AccountConnections"
 import { useEngineState } from "./lib/useEngineState"
+import { fetchInstrument } from "./lib/api"
 
 type PageName =
   | "overview"
@@ -40,6 +41,13 @@ const NAV: Array<[PageName, string]> = [
 const App: React.FC = () => {
   const [page, setPage] = useState<PageName>("overview")
   const engineState = useEngineState()
+  const [instrumentLabel, setInstrumentLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    void fetchInstrument()
+      .then((i) => setInstrumentLabel(i.symbol))
+      .catch(() => setInstrumentLabel(null))
+  }, [])
 
   // Active execution mode is displayed at all times; paper is the default
   // and the live state is only shown when the backend reports it.
@@ -57,7 +65,7 @@ const App: React.FC = () => {
       <nav>
         <div className="brand">
           GoldBot
-          <small>paper · XAUUSD · 15m</small>
+          <small>paper · {instrumentLabel ?? "XAUUSD"} · {engineState.health?.instrument_symbol ?? "…"}</small>
         </div>
         {NAV.map(([key, label]) => (
           <button

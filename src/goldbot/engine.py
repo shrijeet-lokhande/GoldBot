@@ -24,6 +24,7 @@ import pandas as pd
 
 from goldbot.core.config import GoldBotSettings
 from goldbot.core.exceptions import GoldBotError
+from goldbot.core.instruments import PRIMARY_INSTRUMENT
 from goldbot.core.models import (
     Candle,
     InstrumentMetadata,
@@ -140,7 +141,7 @@ class TradingEngine:
         persistence_path: str | Path | None = None,
     ):
         self.settings = settings
-        self.symbol = settings.instrument_symbol or "XAUUSD"
+        self.symbol = settings.instrument_symbol or PRIMARY_INSTRUMENT.symbol
         self.entry_timeframe = settings.entry_timeframe or "15m"
         self.trend_timeframe = settings.trend_timeframe or "1h"
         self.auto_approve = auto_approve

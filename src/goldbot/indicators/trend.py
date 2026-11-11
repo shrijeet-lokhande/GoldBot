@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from goldbot.indicators.momentum import rsi as _momentum_rsi
+
 
 def sma(series: pd.Series, period: int) -> pd.Series:
     """Calculate Simple Moving Average.
@@ -34,30 +36,12 @@ def ema(series: pd.Series, period: int) -> pd.Series:
 
 
 def rsi(series: pd.Series, period: int = 14) -> pd.Series:
-    """Calculate Relative Strength Index (14-period default).
+    """Relative Strength Index — canonical Wilder implementation.
 
-    Args:
-        series: Price series (typically close prices).
-        period: RSI lookback period.
-
-    Returns:
-        RSI series with values in [0, 100]. NaN for the first `period`
-        values.
+    Delegates to :func:`goldbot.indicators.momentum.rsi` so there is exactly
+    one RSI formula in the codebase.
     """
-    if period < 1:
-        raise ValueError("RSI period must be >= 1")
-
-    delta = series.diff()
-    up = delta.clip(lower=0)
-    down = -delta.clip(upper=0)
-
-    # Exponential moving average of up/down moves
-    ma_up = up.ewm(alpha=1 / period, adjust=False, min_periods=1).mean()
-    ma_down = down.ewm(alpha=1 / period, adjust=False, min_periods=1).mean()
-
-    rs = ma_up / ma_down
-    rsi_val = 100 - (100 / (1 + rs))
-    return rsi_val
+    return _momentum_rsi(series, period)
 
 
 def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:

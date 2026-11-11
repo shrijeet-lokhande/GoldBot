@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
+import { fetchInstrument, InstrumentIdentity } from "../../lib/api"
 
 // Official TradingView embeddable Advanced Chart widget (free, supported
 // embedding method — no scraping, no private endpoints). TradingView is the
@@ -6,8 +7,12 @@ import React, { useEffect, useRef, useState } from "react"
 // consumes TradingView data.
 //
 // Docs: https://www.tradingview.com/widget-docs/widgets/charts/advanced-chart/
+//
+// The displayed symbol is fetched from the backend's centralized instrument
+// configuration (/api/v1/instrument) so the chart always matches the engine;
+// the constant below is only an offline fallback.
 
-const DEFAULT_SYMBOL = "OANDA:XAUUSD"
+const FALLBACK_SYMBOL = "OANDA:XAUUSD"
 
 const TIMEFRAMES: Array<[string, string, string]> = [
   // [label, interval, seconds]
@@ -25,11 +30,20 @@ interface Props {
   symbol?: string
 }
 
-const TradingViewChart: React.FC<Props> = ({ symbol = DEFAULT_SYMBOL }) => {
+const TradingViewChart: React.FC<Props> = ({ symbol: symbolProp }) => {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [interval, setIntervalStr] = useState("15")
   const [fullscreen, setFullscreen] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [identity, setIdentity] = useState<InstrumentIdentity | null>(null)
+
+  useEffect(() => {
+    void fetchInstrument()
+      .then(setIdentity)
+      .catch(() => setIdentity(null))
+  }, [])
+
+  const symbol = symbolProp ?? identity?.tradingview_symbol ?? FALLBACK_SYMBOL
 
   useEffect(() => {
     const host = containerRef.current
@@ -103,8 +117,8 @@ const TradingViewChart: React.FC<Props> = ({ symbol = DEFAULT_SYMBOL }) => {
       </header>
       <p className="muted">
         Official TradingView embed (display only — GoldBot's analysis engine uses
-        its own market-data pipeline). Default instrument:{" "}
-        <code>{DEFAULT_SYMBOL}</code>.
+        its own market-data pipeline). Active instrument:{" "}
+        <code>{identity ? `${identity.symbol} · ${identity.name}` : FALLBACK_SYMBOL}</code>.
       </p>
       <div className={`tv-chart ${heightClass}`}>
         <div

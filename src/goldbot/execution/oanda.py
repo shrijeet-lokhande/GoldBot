@@ -26,6 +26,7 @@ import uuid
 from typing import Any, Callable
 
 from goldbot.core.exceptions import GoldBotError
+from goldbot.core.instruments import PRIMARY_INSTRUMENT
 from goldbot.core.models import (
     Order,
     OrderSide,
@@ -68,7 +69,7 @@ class OandaBrokerAdapter:
         environment: str = "practice",
         http: Callable[[str, str, dict, dict | None], tuple[int, dict]] | None = None,
         lots_to_units: float = UNITS_PER_LOT,
-        symbol: str = "XAUUSD",
+        symbol: str = PRIMARY_INSTRUMENT.symbol,
     ):
         if environment not in OANDA_HOSTS:
             raise GoldBotError(
@@ -351,7 +352,7 @@ class OandaBrokerAdapter:
                 )
         return out
 
-    def close_position(self, symbol: str = "XAUUSD") -> dict:
+    def close_position(self, symbol: str = PRIMARY_INSTRUMENT.symbol) -> dict:
         """Market-close the full open position (long and/or short side)."""
         units_signed: float | None = None
         for position in self.get_positions():

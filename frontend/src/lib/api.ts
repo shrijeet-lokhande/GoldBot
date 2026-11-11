@@ -192,6 +192,20 @@ export function fetchModeAudit(): Promise<AuditTrailEntry[]> {
   return apiGet<AuditTrailEntry[]>("/api/v1/mode/audit")
 }
 
+export interface InstrumentIdentity {
+  symbol: string
+  name: string
+  tradingview_symbol: string
+  tradingview_chart_url: string
+  oanda_symbol: string
+  contract_size: number
+  tick_size: number
+}
+
+export function fetchInstrument(): Promise<InstrumentIdentity> {
+  return apiGet<InstrumentIdentity>("/api/v1/instrument")
+}
+
 export function authorizeLive(
   confirmation: string
 ): Promise<ModeStatus> {

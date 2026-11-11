@@ -12,6 +12,8 @@ import time
 import urllib.error
 import urllib.request
 
+from goldbot.core.instruments import CANONICAL_SYMBOL
+
 BASE = "http://127.0.0.1:8000"
 PASSED: list[str] = []
 FAILED: list[tuple[str, str]] = []
@@ -125,7 +127,7 @@ def t_orders_and_positions():
     status, positions = call("GET", "/api/v1/positions")
     assert status == 200 and isinstance(positions, list)
     for p in positions:
-        assert p["symbol"] == "XAUUSD"
+        assert p["symbol"] == CANONICAL_SYMBOL
         assert p["side"] in ("buy", "sell")
         assert p["volume"] >= 0.01, p
         assert p["stop_loss"] > 0 and p["take_profit"] > 0, p

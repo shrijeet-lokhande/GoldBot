@@ -79,6 +79,7 @@ class AnalysisReport:
     structure: dict  # structure engine output (dict form)
     fundamentals: dict  # macro/event availability + events
     timeframes: dict  # per-timeframe trend/confluence votes
+    reference_levels: dict  # session + PDH/PDL/PWH/PWL levels
 
     def to_dict(self) -> dict:
         return {
@@ -102,6 +103,7 @@ class AnalysisReport:
             "structure": self.structure,
             "fundamentals": self.fundamentals,
             "timeframes": self.timeframes,
+            "reference_levels": self.reference_levels,
         }
 
     @staticmethod
