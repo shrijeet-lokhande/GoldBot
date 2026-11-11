@@ -222,3 +222,47 @@ def test_close_position_no_position_404(client):
         # position may exist from earlier tests in this class session;
         # a 200 with trade data is acceptable.
         assert r.status_code == 200
+
+
+def test_prediction_endpoint(client):
+    r = client.get("/api/v1/prediction")
+    assert r.status_code == 200
+    body = r.json()
+    if not body.get("available", True):
+        # Early in replay: honest limitation payload instead of a forecast.
+        assert "insufficient" in body["detail"].lower()
+        assert "data_limitation" in body
+        return
+    f = body["forecast"]
+    for key in (
+        "directional_bias",
+        "regime",
+        "entry_zone",
+        "invalidation_level",
+        "stop_loss",
+        "take_profit",
+        "risk_reward",
+        "horizon",
+        "confidence",
+        "supporting_evidence",
+    ):
+        assert key in f
+    assert 0 <= f["confidence"] <= 90
+    assert "not a calibrated probability" in f["disclaimer"]
+    assert body["evaluation"] is not None
+
+
+def test_prediction_endpoint_horizon_validation(client):
+    assert client.get("/api/v1/prediction?horizon=0").status_code in (400, 422)
+    assert client.get("/api/v1/prediction?horizon=99").status_code in (400, 422)
+
+
+def test_prediction_endpoint_insufficient_data_is_structured(client):
+    """Early in replay the engine reveals < 60 bars; the endpoint must state
+    the limitation rather than raise or fabricate a forecast."""
+    r = client.get("/api/v1/prediction")
+    assert r.status_code == 200
+    body = r.json()
+    if not body.get("available", True):
+        assert "insufficient" in body["detail"].lower()
+        assert "data_limitation" in body

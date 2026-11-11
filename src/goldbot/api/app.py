@@ -259,6 +259,39 @@ def analysis(refresh: bool = False) -> dict:
     return eng.analyze()
 
 
+@app.get("/api/v1/prediction")
+def prediction(horizon: int = 4) -> dict:
+    """XAUUSD statistical forecast with honest, out-of-sample validation.
+
+    Returns the 10-field forecast (bias, regime, entry/invalidation/stop/TP,
+    risk-reward, horizon, heuristic confidence, evidence) plus the evaluation
+    block (chronological-split accuracy vs baselines, walk-forward, Brier,
+    calibration). Confidence is a heuristic score, NOT a calibrated
+    probability — the evaluation block is where real skill is shown.
+    """
+    if horizon < 1 or horizon > 32:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="horizon must be between 1 and 32 bars")
+    eng = _engine()
+    candles = eng.candles
+    from goldbot.prediction import run_prediction
+
+    try:
+        return run_prediction(candles, horizon_bars=horizon).to_dict()
+    except ValueError as exc:
+        # Insufficient revealed history: state the limitation instead of
+        # manufacturing a forecast.
+        return {
+            "available": False,
+            "detail": str(exc),
+            "data_limitation": (
+                "Not enough completed XAUUSD candles are revealed yet. The "
+                "prediction pipeline refuses to fit or forecast on thin data."
+            ),
+        }
+
+
 # ---------------------------------------------------------------------------
 # Trading mode (paper/live) management
 # ---------------------------------------------------------------------------
