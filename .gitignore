@@ -23,3 +23,7 @@ node_modules/
 .pytest_cache/
 # Runtime state
 /.run/
+
+# Python bytecode
+__pycache__/
+*.pyc
