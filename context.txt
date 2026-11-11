@@ -85,11 +85,11 @@ Baseline verified: clean tree 37aac19, checkpoint matches repo.
 Phase plan:
 | Phase | Item | Status |
 |---|---|---|
-| P1 | Instrument dependency map (grep audit complete; no legacy symbols exist; hardcoded XAUUSD fallbacks to centralize: main.py x2, repository.py x3, engine.py, analysis/engine.py, oanda.py close default, frontend TV symbol + subtitle) | IN PROGRESS |
+| P1 | Instrument dependency map + centralized all fallbacks through PRIMARY_INSTRUMENT (backend main.py/repository.py/engine.py/analysis engine/oanda.py/e2e script; frontend fetches /api/v1/instrument); TV chart uses API tradingview_symbol; 30 api/config tests + frontend build green | DONE |
 | P1 | Remove runtime artifact .run/backend.pid from index; gitignore /.run/ | DONE |
-| P2 | Gold price-action additions: session highs/lows (Asia/London/NY), previous-day H/L, previous-week H/L with rationale | PLANNED |
-| P2 | Threshold rationale documentation (docs/THRESHOLDS.md) | PLANNED |
-| P2 | Indicator validation vs independently computed reference values | PLANNED |
+| P2 | Gold price-action: analysis/session_levels.py (session H/L, PDH/PDL, PWH/PWL, PeriodLevel) wired into AnalysisReport.reference_levels; verified live vs sample data | DONE |
+| P2 | docs/THRESHOLDS.md written (indicators, structure tolerances ATR-scaled, sessions, risk guards, scoring, data quality) | DONE |
+| P2 | tests/test_indicator_validation.py (EMA/SMA/RSI/ATR/ADX/MACD/BB/StochRSI vs hand-computed refs); FOUND+FIXED 2 real defects: RSI was EWM-seeded (not Wilder SMA-seeded), ATR was span-EMA (not Wilder alpha=1/period). New indicators/wilder.py wilder_smooth exact recursion, NaN warm-up, flat RSI=50. trend.rsi delegates to momentum.rsi. Full suite 253 passed, ruff clean, mypy clean. Commit 28c1d26 | DONE |
 | P3 | Prediction pipeline: features, transparent statistical model + baselines, chronological split, walk-forward, error metrics, calibration; /api/v1/prediction; frontend panel; honest data-availability limitation + acquisition pipeline script | PLANNED |
 | P4 | Broker real contract specs: OANDA instrument details endpoint, spec-driven position sizing (tick size/value, volume step, min/max, account-currency conversion), reject on inconsistent specs | PLANNED |
 | P5 | DB provenance migration: instrument column on market/orders/positions/trades tables backfilled from symbol (no relabeling); data_provenance doc | PLANNED |
