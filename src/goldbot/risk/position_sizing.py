@@ -16,6 +16,7 @@ def calculate_position_size(
     instrument: InstrumentMetadata,
     side: SignalDirection,
     current_position_lots: float = 0.0,
+    quote_to_account_rate: float = 1.0,
 ) -> float:
     """Calculate position size based on risk per trade.
 
@@ -77,7 +78,15 @@ def calculate_position_size(
     # For a gold CFD or spot: P&L per 1.0 price-unit move per lot = contract_size
     # (e.g. 1 lot = 100 oz => $1 move = $100). tick_value/tick_size are
     # informational and must be consistent: tick_value = tick_size * contract_size.
-    value_per_lot = instrument.contract_size
+    # quote_to_account_rate converts quote-currency P&L into the broker
+    # account currency when the two differ (fetched from the broker, never
+    # assumed — see OandaBrokerAdapter.get_quote_to_account_rate).
+    if not (quote_to_account_rate > 0):
+        raise RiskError(
+            "quote_to_account_rate must be positive; refusing to size with an "
+            "unavailable or invalid currency conversion."
+        )
+    value_per_lot = instrument.contract_size * quote_to_account_rate
 
     cash_risk_per_unit = stop_distance * value_per_lot
 

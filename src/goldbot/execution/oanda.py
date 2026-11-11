@@ -25,9 +25,10 @@ import logging
 import uuid
 from typing import Any, Callable
 
-from goldbot.core.exceptions import GoldBotError
+from goldbot.core.exceptions import GoldBotError, MetadataError
 from goldbot.core.instruments import PRIMARY_INSTRUMENT
 from goldbot.core.models import (
+    InstrumentMetadata,
     Order,
     OrderSide,
     OrderStatus,
@@ -48,6 +49,95 @@ INSTRUMENT_MAP = {
 
 # OANDA units per GoldBot lot for XAUUSD (1 lot = 100 oz).
 UNITS_PER_LOT = 100.0
+
+
+def instrument_spec_from_oanda(
+    details: dict,
+    symbol: str,
+    units_per_lot: float = UNITS_PER_LOT,
+) -> InstrumentMetadata:
+    """Convert an OANDA v20 instrument object into verified GoldBot specs.
+
+    Reads the broker's ACTUAL contract specifications (never assumes them):
+    - displayPrecision -> tick_size (smallest displayed price increment)
+    - tradeUnitsPrecision -> volume step in lots (units precision per oz)
+    - minimumTradeSize / maximumOrderUnits -> min/max volume in lots
+    - pipLocation / marginRate recorded for margin and risk checks
+
+    Raises MetadataError on any missing or internally inconsistent spec —
+    a trade that requires unavailable specs must be rejected, not guessed.
+    """
+    required = {
+        "name": details.get("name"),
+        "displayPrecision": details.get("displayPrecision"),
+        "tradeUnitsPrecision": details.get("tradeUnitsPrecision"),
+        "minimumTradeSize": details.get("minimumTradeSize"),
+        "maximumOrderUnits": details.get("maximumOrderUnits"),
+        "pipLocation": details.get("pipLocation"),
+    }
+    missing = [k for k, v in required.items() if v is None]
+    if missing:
+        raise MetadataError(
+            f"OANDA instrument spec for {symbol!r} is missing required fields: "
+            f"{missing}. Position sizing rejected."
+        )
+
+    display_precision = int(details["displayPrecision"])
+    units_precision = int(details["tradeUnitsPrecision"])
+    minimum_units = float(details["minimumTradeSize"])
+    maximum_units = float(details["maximumOrderUnits"])
+    pip_location = int(details["pipLocation"])
+
+    if units_per_lot <= 0:
+        raise MetadataError("units_per_lot must be positive.")
+    if display_precision < 0 or units_precision < 0:
+        raise MetadataError(
+            f"OANDA spec precisions for {symbol!r} are negative "
+            f"(display={display_precision}, units={units_precision})."
+        )
+    if maximum_units <= 0 or minimum_units <= 0:
+        raise MetadataError(
+            f"OANDA trade-size bounds for {symbol!r} are non-positive "
+            f"(min={minimum_units}, max={maximum_units})."
+        )
+    if minimum_units > maximum_units:
+        raise MetadataError(
+            f"Inconsistent OANDA spec for {symbol!r}: minimumTradeSize "
+            f"({minimum_units}) exceeds maximumOrderUnits ({maximum_units})."
+        )
+
+    quote_currency = details["name"].split("_", 1)[1] if "_" in details["name"] else "USD"
+    tick_size = 10.0 ** (-display_precision)
+    contract_size = units_per_lot  # 1 GoldBot lot = units_per_lot oz of gold
+    tick_value = tick_size * contract_size  # quote-currency value per tick per lot
+
+    metadata = InstrumentMetadata(
+        symbol=symbol,
+        venue="OANDA",
+        asset_type="metal_spot",
+        quote_currency=quote_currency,
+        contract_size=contract_size,
+        tick_size=tick_size,
+        tick_value=tick_value,
+        volume_step=10.0 ** (-units_precision) / units_per_lot,
+        min_volume=minimum_units / units_per_lot,
+        max_volume=maximum_units / units_per_lot,
+        trading_hours=None,
+        margin_rate=float(details["marginRate"]) if details.get("marginRate") else None,
+        commission=None,
+        swap_long=None,
+        swap_short=None,
+        verified=True,
+        source=f"oanda_v20_instruments(pipLocation={pip_location})",
+    )
+    if metadata.min_volume is None or metadata.max_volume is None:
+        raise MetadataError("converted volumes are missing.")  # defensive
+    if metadata.min_volume > metadata.max_volume:
+        raise MetadataError(
+            f"Converted volume bounds inverted for {symbol!r}: "
+            f"min {metadata.min_volume} > max {metadata.max_volume}."
+        )
+    return metadata
 
 
 class OandaBrokerAdapter:
@@ -136,6 +226,70 @@ class OandaBrokerAdapter:
     def reconnect(self) -> bool:
         self._connected = self.health_check()
         return self._connected
+
+    def get_instrument_spec(self, symbol: str | None = None) -> InstrumentMetadata:
+        """Fetch the broker's ACTUAL contract specs for the instrument.
+
+        Uses /v3/accounts/{id}/instruments; raises GoldBotError when the
+        broker does not list the instrument or the request fails. Account
+        currency is read from the account summary so tick values can be
+        converted for sizing (see get_quote_to_account_rate).
+        """
+        sym = symbol or self.symbol
+        oanda_name = INSTRUMENT_MAP.get(sym, sym)
+        payload = self._request(
+            "GET",
+            f"/v3/accounts/{self.account_id}/instruments?instruments={oanda_name}",
+        )
+        instruments = payload.get("instruments") or []
+        matches = [i for i in instruments if i.get("name") == oanda_name]
+        if not matches:
+            raise GoldBotError(
+                f"OANDA does not list instrument {oanda_name!r} for this account; "
+                "refusing to size orders against assumed specs."
+            )
+        account_currency = self.get_account_summary().get("currency") or "USD"
+        spec = instrument_spec_from_oanda(matches[0], sym)
+        if account_currency and spec.quote_currency and account_currency != spec.quote_currency:
+            rate = self.get_quote_to_account_rate(spec.quote_currency, account_currency)
+            # Keep the spec in quote currency; sizing must multiply by `rate`.
+            spec.source += f";account_currency={account_currency};quote_to_acct_rate={rate:.10g}"
+        return spec
+
+    def get_quote_to_account_rate(self, quote_currency: str, account_currency: str) -> float:
+        """Conversion rate quote-currency -> account-currency (rejects on failure).
+
+        Sizing risk in the account currency needs this when the broker
+        account is not denominated in the instrument quote currency
+        (XAUUSD quotes USD). We ask OANDA for a one-candle price snapshot
+        of the direct or inverse pair; if neither exists the trade is
+        rejected rather than sized with an assumed rate.
+        """
+        if quote_currency == account_currency:
+            return 1.0
+        # Pair A_B's price = B per 1 A. We want rate = account per 1 quote:
+        # - pair (account, quote): price = quote per account -> invert
+        # - pair (quote, account): price = account per quote -> direct
+        for pair, invert in (
+            (f"{account_currency}_{quote_currency}", True),
+            (f"{quote_currency}_{account_currency}", False),
+        ):
+            try:
+                payload = self._request(
+                    "GET",
+                    f"/v3/instruments/{pair}/candles?count=1&granularity=S&price=M",
+                )
+                candles = payload.get("candles") or []
+                if candles and candles[-1].get("complete"):
+                    close = float(candles[-1]["mid"]["c"])
+                    if close > 0:
+                        return 1.0 / close if invert else close
+            except GoldBotError:
+                continue
+        raise MetadataError(
+            f"Cannot determine conversion rate {quote_currency}->{account_currency} "
+            "from broker pricing; position sizing rejected."
+        )
 
     def get_account_summary(self) -> dict:
         """Account balance, margin, P&L (v20 account object)."""

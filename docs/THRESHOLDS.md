@@ -78,6 +78,18 @@ numeric fitting involved.
 | Bias weights | 1w/d:4, 4h:3, 1h:2, ≤30m:1 | Higher timeframes dominate directional bias; equal votes tie → neutral. |
 | Confidence adjustments | ±20 aligned TFs, ±10 ADX, +5 structure event, −5 no fundamentals | Transparent heuristics bounded to 5–90; explicitly NOT calibrated probabilities. |
 
+## Broker contract specifications
+
+Position sizing is spec-driven. For live (OANDA) execution the specs come
+from the broker's own instrument details endpoint
+(`/v3/accounts/{id}/instruments`): `displayPrecision` -> tick size,
+`tradeUnitsPrecision` -> volume step, `minimumTradeSize`/`maximumOrderUnits`
+-> min/max volume, `marginRate` recorded for margin checks. GoldBot's
+documented defaults (1 lot = 100 oz, tick 0.1) apply ONLY to the paper
+simulator; live sizing refuses to run on assumed or inconsistent specs
+(missing fields, inverted min/max bounds, or an undeterminable
+quote->account currency conversion all reject the trade).
+
 ## Data quality
 
 | Constant | Value | Rationale |
