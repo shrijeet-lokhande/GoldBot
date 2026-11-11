@@ -19,6 +19,8 @@ const Overview: React.FC<{ state: EngineState }> = ({ state }) => {
           <div className="stat-line">Ask<b className="muted">{quote ? fmt(quote.ask) : "—"}</b></div>
           <div className="stat-line">Spread<b>{quote ? fmt(quote.spread) : "—"}</b></div>
           <div className="stat-line">Instrument<b>{health?.instrument_symbol ?? "—"}</b></div>
+          <div className="stat-line">Data source<b className="muted">{quote?.source ?? "engine_replay(paper)"}</b></div>
+          <div className="stat-line">As of<b className="muted">{quote?.as_of_utc ?? "—"}</b></div>
           <div className="stat-line">Connection<b className={connected ? "positive" : "negative"}>
             {connected ? "LIVE" : "polling"}
           </b></div>

@@ -42,6 +42,9 @@ export interface Quote {
   spread: number
   mid_price: number
   equity?: number
+  instrument_symbol?: string
+  source?: string
+  as_of_utc?: string | null
 }
 
 export interface Account {

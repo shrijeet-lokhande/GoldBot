@@ -335,11 +335,18 @@ class TradingEngine:
     def get_quote(self) -> dict:
         mid = self.paper_broker.current_price
         spread = self.paper_broker.spread
+        # Data-source provenance: every displayed price must be traceable to
+        # its provider and timestamp (Phase 6 requirement).
+        candles = self.candles
+        as_of = candles[-1].timestamp_utc.isoformat() if candles else None
         return {
             "bid": round(mid - spread / 2.0, 2),
             "ask": round(mid + spread / 2.0, 2),
             "spread": spread,
             "mid_price": round(mid, 2),
+            "instrument_symbol": self.symbol,
+            "source": "engine_replay(paper)",
+            "as_of_utc": as_of,
         }
 
     def get_account(self) -> dict:

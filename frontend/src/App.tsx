@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react"
 import "./index.css"
 import Overview from "./components/pages/Overview"
 import Prediction from "./components/pages/Prediction"
+import AnalysisPanel from "./components/pages/AnalysisPanel"
 import LiveMarket from "./components/pages/LiveMarket"
 import TradeApproval from "./components/pages/TradeApproval"
 import OpenPositions from "./components/pages/OpenPositions"
@@ -19,6 +20,7 @@ type PageName =
   | "live"
   | "tradingview"
   | "prediction"
+  | "analysis"
   | "approval"
   | "positions"
   | "history"
@@ -32,6 +34,7 @@ const NAV: Array<[PageName, string]> = [
   ["live", "Live market"],
   ["tradingview", "TradingView"],
   ["prediction", "Prediction"],
+  ["analysis", "Analysis"],
   ["approval", "Trade approval"],
   ["positions", "Open positions"],
   ["history", "Trade history"],
@@ -95,6 +98,7 @@ const App: React.FC = () => {
         {page === "live" && <LiveMarket state={engineState} />}
         {page === "tradingview" && <TradingViewChart />}
         {page === "prediction" && <Prediction />}
+        {page === "analysis" && <AnalysisPanel />}
         {page === "approval" && <TradeApproval state={engineState} />}
         {page === "positions" && <OpenPositions state={engineState} />}
         {page === "history" && <TradeHistory />}

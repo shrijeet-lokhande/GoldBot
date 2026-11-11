@@ -106,6 +106,10 @@ const LiveMarket: React.FC<Props> = ({ state }) => {
             Bars: {state.candles.length}
             {state.health ? ` / ${state.health.total_bars}` : ""}
           </span>
+          <span className="muted">
+            Source: <b>{state.quote?.source ?? "engine_replay(paper)"}</b>
+            {state.quote?.as_of_utc ? ` · as of ${state.quote.as_of_utc}` : ""}
+          </span>
         </div>
         <div ref={containerRef} className="chart-container" />
       </div>
