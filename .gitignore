@@ -29,8 +29,6 @@ __pycache__/
 *.pyc
 
 
-AGENTS.md
-context.txt
 
 # Local-only agent/dev-context files (kept out of the public repo)
 /AGENTS.md
