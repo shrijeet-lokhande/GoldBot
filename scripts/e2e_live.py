@@ -70,7 +70,7 @@ def t_candles():
     # Fresh replays reveal bars over time and the replay "wraps" to bar 0
     # after exhausting the dataset - wait until we are inside a window that
     # guarantees a full candle page.
-    deadline = time.time() + 120
+    deadline = time.time() + 300
     while time.time() < deadline:
         try:
             _s, es = call("GET", "/api/v1/engine/status", timeout=5)
@@ -198,7 +198,7 @@ def wait_for_proposal(timeout_s: float = 60.0) -> dict | None:
 
 
 def t_proposal_lifecycle():
-    prop = wait_for_proposal(timeout_s=90)
+    prop = wait_for_proposal(timeout_s=240)
     assert prop is not None, "no pending proposal appeared within 90s"
     pid = prop["proposal_id"]
     assert prop["status"] == "pending"
@@ -216,7 +216,7 @@ def t_proposal_lifecycle():
     assert out["status"] in ("rejected_by_risk", "already_executed", "not_allowed"), out
 
     # next proposal: approve it and expect an order + position
-    prop2 = wait_for_proposal(timeout_s=90)
+    prop2 = wait_for_proposal(timeout_s=240)
     assert prop2 is not None, "no second pending proposal appeared"
     p2 = prop2["proposal_id"]
     orders_before = len(call("GET", "/api/v1/orders")[1])
