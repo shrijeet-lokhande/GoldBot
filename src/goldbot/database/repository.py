@@ -162,6 +162,7 @@ class DatabaseSink:
         order = Order(
             id=order_id,
             symbol=data.get("symbol") or PRIMARY_INSTRUMENT.symbol,
+            instrument=PRIMARY_INSTRUMENT.symbol,
             side=data.get("side") or "buy",
             order_type="market",
             volume=float(data.get("volume") or 0.0),
@@ -185,6 +186,7 @@ class DatabaseSink:
         pnl = float(data.get("pnl") or 0.0)
         row = CompletedTrade(
             symbol=data.get("symbol") or PRIMARY_INSTRUMENT.symbol,
+            instrument=PRIMARY_INSTRUMENT.symbol,
             direction=data.get("side") or "buy",
             entry_price=float(data.get("entry_price") or 0.0),
             exit_price=float(data.get("close_price") or 0.0),

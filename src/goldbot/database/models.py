@@ -107,6 +107,7 @@ class MarketBar(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "market_bars"
 
     symbol = Column(String(32), nullable=False, index=True)
+    instrument = Column(String(32), nullable=True)  # provenance: canonical instrument
     timeframe = Column(String(16), nullable=False, index=True)
     open_price = Column(Float, nullable=False)
     high_price = Column(Float, nullable=False)
@@ -230,6 +231,7 @@ class Order(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "orders"
 
     symbol = Column(String(32), nullable=False, index=True)
+    instrument = Column(String(32), nullable=True)  # provenance: canonical instrument
     side = Column(String(16), nullable=False)
     order_type = Column(String(16), nullable=False)
     volume = Column(Float, nullable=False)
@@ -272,6 +274,7 @@ class Position(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "positions"
 
     symbol = Column(String(32), nullable=False, index=True)
+    instrument = Column(String(32), nullable=True)  # provenance: canonical instrument
     side = Column(String(16), nullable=False)
     volume = Column(Float, nullable=False)
     entry_price = Column(Float, nullable=False)
@@ -294,6 +297,7 @@ class CompletedTrade(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "completed_trades"
 
     symbol = Column(String(32), nullable=False, index=True)
+    instrument = Column(String(32), nullable=True)  # provenance: canonical instrument
     direction = Column(String(16), nullable=False)
     entry_price = Column(Float, nullable=False)
     exit_price = Column(Float, nullable=False)

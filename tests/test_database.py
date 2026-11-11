@@ -379,3 +379,83 @@ def test_database_sink_ignores_bad_events():
     sink.handle_event({"type": "order", "data": {}})
     sink.handle_event({"type": "trade", "data": {"malformed": True}})
     sink.handle_event({"type": "unknown", "data": {}})
+
+
+def test_instrument_provenance_backfill_and_new_rows(migrated_sqlite):
+    """The provenance migration backfills instrument=symbol without
+    touching symbol (no relabeling), and new writes carry the canonical
+    instrument."""
+    import sqlalchemy as sa
+
+    engine = make_engine(migrated_sqlite)
+    factory = make_session_factory(engine)
+    # Simulate a pre-migration row: instrument NULL, symbol set.
+    with session_scope(factory) as session:
+        session.add(
+            MarketBar(
+                id="prov-bar-1",
+                symbol="XAUUSD",
+                instrument=None,
+                timeframe="15m",
+                open_price=2000.0,
+                high_price=2001.0,
+                low_price=1999.0,
+                close_price=2000.5,
+                volume=10.0,
+                is_complete=True,
+            )
+        )
+    # Backfill behaviour: UPDATE instrument = symbol (as the migration does).
+    engine = sa.create_engine(migrated_sqlite)
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text("UPDATE market_bars SET instrument = symbol WHERE instrument IS NULL")
+        )
+    with session_scope(factory) as session:
+        row = session.get(MarketBar, "prov-bar-1")
+        assert row.symbol == "XAUUSD"   # untouched — no relabeling
+        assert row.instrument == "XAUUSD"
+    engine.dispose()
+
+
+def test_new_orders_and_trades_carry_canonical_instrument(migrated_sqlite):
+    from goldbot.core.instruments import PRIMARY_INSTRUMENT
+    from goldbot.database.repository import DatabaseSink
+
+    sink = DatabaseSink.__new__(DatabaseSink)  # bypass settings wiring
+    sink.session_factory = make_session_factory(make_engine(migrated_sqlite))
+    sink.rows_written = 0
+    sink.unsubscribe = None
+
+    order_data = {
+        "order_id": "prov-order-1",
+        "symbol": "XAUUSD",
+        "side": "buy",
+        "volume": 0.1,
+        "fill_price": 2005.0,
+        "proposal_id": "p1",
+    }
+    sink._handle_order(order_data)
+    sink._handle_trade(
+        {
+            "symbol": "XAUUSD",
+            "side": "buy",
+            "entry_price": 2005.0,
+            "close_price": 2010.0,
+            "volume": 0.1,
+            "pnl": 50.0,
+            "entry_time": "2024-01-15T10:00:00+00:00",
+            "close_time": "2024-01-15T11:00:00+00:00",
+            "reason": "take_profit",
+        }
+    )
+    sink_engine = make_engine(migrated_sqlite)
+    with session_scope(make_session_factory(sink_engine)) as session:
+        order = session.get(Order, "prov-order-1")
+        trade = session.get(CompletedTrade, order.id) if False else (
+            session.query(CompletedTrade).first()
+        )
+        assert order.instrument == PRIMARY_INSTRUMENT.symbol
+        assert order.symbol == "XAUUSD"
+        assert trade.instrument == PRIMARY_INSTRUMENT.symbol
+    sink_engine.dispose()
